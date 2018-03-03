@@ -1,0 +1,113 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B4FDD6D8-D9E0-4663-89BC-1C4167597E53}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>IndexExercise.Index</RootNamespace>
+    <AssemblyName>IndexExercise.Index</AssemblyName>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ICSharpCode.SharpZipLib, Version=0.86.0.518, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
+      <HintPath>..\packages\SharpZipLib.0.86.0\lib\20\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lucene.Net.4.8.0-beta00005\lib\net45\Lucene.Net.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net.Analysis.Common, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lucene.Net.Analysis.Common.4.8.0-beta00005\lib\net45\Lucene.Net.Analysis.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net.Queries, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lucene.Net.Queries.4.8.0-beta00005\lib\net45\Lucene.Net.Queries.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net.QueryParser, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lucene.Net.QueryParser.4.8.0-beta00005\lib\net45\Lucene.Net.QueryParser.dll</HintPath>
+    </Reference>
+    <Reference Include="Lucene.Net.Sandbox, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Lucene.Net.Sandbox.4.8.0-beta00005\lib\net45\Lucene.Net.Sandbox.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Collections.Immutable, Version=1.2.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Collections.Immutable.1.2.0\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Collections\Extensions.cs" />
+    <Compile Include="FileSystem\HardLinkUtility.cs" />
+    <Compile Include="FileSystem\AlternativeDataStream.cs" />
+    <Compile Include="FileSystem\IndexingMetadataUtility.cs" />
+    <Compile Include="FileSystem\Model\EntryAccessError.cs" />
+    <Compile Include="FileSystem\Model\Find.cs" />
+    <Compile Include="FileSystem\Model\Metadata.cs" />
+    <Compile Include="Collections\PriorityQueue.cs" />
+    <Compile Include="Collections\QueueDictionary.cs" />
+    <Compile Include="FileSystem\PathString.cs" />
+    <Compile Include="FileSystem\Model\SequentialId.cs" />
+    <Compile Include="FileSystem\Model\DirectoryEntry.cs" />
+    <Compile Include="FileSystem\Model\FileEntry.cs" />
+    <Compile Include="FileSystem\Model\Entry.cs" />
+    <Compile Include="FileSystem\Mirror.cs" />
+    <Compile Include="FileSystem\Model\UnclassifiedEntry.cs" />
+    <Compile Include="FileSystem\Model\Change.cs" />
+    <Compile Include="FileSystem\Model\EntryType.cs" />
+    <Compile Include="FileSystem\Model\WatchTarget.cs" />
+    <Compile Include="FileSystem\Model\RootEntry.cs" />
+    <Compile Include="BackgroundLoopOwner.cs" />
+    <Compile Include="FileSystem\Model\WatcherErrorArgs.cs" />
+    <Compile Include="Collections\RandomAccessQueue.cs" />
+    <Compile Include="FileSystem\WatcherPathInspector.cs" />
+    <Compile Include="FileSystem\Model\WatchTargetState.cs" />
+    <Compile Include="Index\IndexFacade.cs" />
+    <Compile Include="FileSystem\Watcher.cs" />
+    <Compile Include="Collections\MultiDictionary.cs" />
+    <Compile Include="Index\Lucene\CharSequenceWrapper.cs" />
+    <Compile Include="Index\Lucene\TokenExtension.cs" />
+    <Compile Include="Index\Model\ContentSearchResult.cs" />
+    <Compile Include="Index\Model\FileSearchResult.cs" />
+    <Compile Include="Index\Lucene\Cj.cs" />
+    <Compile Include="Index\Lucene\GenericAnalyzer.cs" />
+    <Compile Include="Index\Lucene\GenericTokenizer.cs" />
+    <Compile Include="Index\Interface\ILexer.cs" />
+    <Compile Include="Index\Lucene\Token.cs" />
+    <Compile Include="Index\Lucene\LuceneIndexEngine.cs" />
+    <Compile Include="Index\Lucene\DefaultLexer.cs" />
+    <Compile Include="Index\Interface\IIndexEngine.cs" />
+    <Compile Include="Index\Interface\IToken.cs" />
+    <Compile Include="Index\Interface\ILexerFactory.cs" />
+    <Compile Include="Index\Model\IndexingTask.cs" />
+    <Compile Include="Index\IndexingTaskProcessor.cs" />
+    <Compile Include="Index\Model\IndexingAction.cs" />
+    <Compile Include="Index\Lucene\DefaultLexerFactory.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
