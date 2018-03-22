@@ -7,7 +7,6 @@ using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
-using Directory = Lucene.Net.Store.Directory;
 
 namespace IndexExercise.Index.Lucene
 {
@@ -17,9 +16,15 @@ namespace IndexExercise.Index.Lucene
 			string indexDirectory = null,
 			ILexerFactory lexerFactory = null)
 		{
-			_lexerFactory = lexerFactory ?? new DefaultLexerFactory();
 			_indexDirectory = indexDirectory ?? "lucene-index";
-			_writerLexer = _lexerFactory.CreateLexer();
+
+			lexerFactory = lexerFactory ?? new DefaultLexerFactory();
+			_writerLexer = lexerFactory.CreateLexer();
+			_writerAnalyzer = new GenericAnalyzer(_writerLexer);
+
+			var queryParserLexer = lexerFactory.CreateLexer();
+			var queryParserAnalyzer = new GenericAnalyzer(queryParserLexer);
+			_queryParser = new QueryParser(LuceneVersion.LUCENE_48, ContentFieldName, queryParserAnalyzer);
 		}
 
 		public void Initialize()
@@ -27,9 +32,8 @@ namespace IndexExercise.Index.Lucene
 			System.IO.Directory.CreateDirectory(_indexDirectory);
 
 			_index = FSDirectory.Open(_indexDirectory);
-			clear(_index);
 
-			var writerConfig = new IndexWriterConfig(LuceneVersion.LUCENE_48, new GenericAnalyzer(_writerLexer));
+			var writerConfig = new IndexWriterConfig(LuceneVersion.LUCENE_48, _writerAnalyzer);
 			_indexWriter = new IndexWriter(_index, writerConfig);
 		}
 
@@ -70,12 +74,15 @@ namespace IndexExercise.Index.Lucene
 
 		public ContentSearchResult Search(string searchQuery)
 		{
-			var queryParser = createQueryParser();
 			Query query;
 
 			try
 			{
-				query = queryParser.Parse(searchQuery);
+				lock (_queryParser)
+				{
+					// QueryParser is not thread safe
+					query = _queryParser.Parse(searchQuery);
+				}
 			}
 			catch (ParseException ex)
 			{
@@ -112,32 +119,6 @@ namespace IndexExercise.Index.Lucene
 
 
 
-		private QueryParser createQueryParser()
-		{
-			return new QueryParser(LuceneVersion.LUCENE_48, ContentFieldName, createAnalyzer());
-		}
-
-		private GenericAnalyzer createAnalyzer()
-		{
-			var lexer = _lexerFactory.CreateLexer();
-			return new GenericAnalyzer(lexer);
-		}
-
-		private void clear(Directory index)
-		{
-			var writer = new IndexWriter(index,
-				new IndexWriterConfig(LuceneVersion.LUCENE_48, createAnalyzer())
-				{
-					OpenMode = OpenMode.CREATE
-				});
-
-			using (writer)
-			{
-				writer.DeleteAll();
-				writer.Commit();
-			}
-		}
-
 		private static Term getContentIdTerm(long contentId)
 		{
 			var contentIdBytes = new BytesRef();
@@ -147,13 +128,15 @@ namespace IndexExercise.Index.Lucene
 		}
 
 		private FSDirectory _index;
+		private IndexWriter _indexWriter;
 
-		private readonly ILexerFactory _lexerFactory;
+		private readonly ILexer _writerLexer;
+		private readonly GenericAnalyzer _writerAnalyzer;
+		private readonly QueryParser _queryParser;
+
 		private readonly string _indexDirectory;
 
 		private readonly object _syncWrite = new object();
-		private readonly ILexer _writerLexer;
-		private IndexWriter _indexWriter;
 
 		private const string IdFieldName = "id";
 		private const string ContentFieldName = "content";

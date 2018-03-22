@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 
 namespace IndexExercise.Index.Lucene
 {
@@ -25,16 +24,6 @@ namespace IndexExercise.Index.Lucene
 				MaxWordLength = MaxWordLength,
 				IsCaseSensitive = IsCaseSensitive
 			};
-		}
-
-		internal IEnumerable<IToken> Parse(TextReader input)
-		{
-			var lexer = CreateLexer();
-
-			lexer.Reset(input);
-
-			while (lexer.MoveNext())
-				yield return lexer.Current;
 		}
 
 		public HashSet<char> AdditionalWordChars { get; } = new HashSet<char>("_");

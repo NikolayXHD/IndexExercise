@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using IndexExercise.Index.Lucene;
 using NUnit.Framework;
@@ -90,7 +90,7 @@ namespace IndexExercise.Index.Test
 				assertAllActualResultsAreCorrect(query.Query, query.ExpectedResults, query.ActualResults);
 		}
 
-		private (string Query, HashSet<long>[] ExpectedResults, List<HashSet<long>> ActualResults)[] readAndWriteConcurrently(int updateCyclesCount)
+		private (ConcurrentBag<HashSet<long>> ActualResults, HashSet<long>[] ExpectedResults, string Query)[] readAndWriteConcurrently(int updateCyclesCount)
 		{
 			const long id1 = 1L;
 			const long id2 = 2L;
@@ -102,35 +102,36 @@ namespace IndexExercise.Index.Test
 
 			var id1OrEmpty = new[] { empty, id1Only };
 			var id2OrEmpty = new[] { empty, id2Only };
-			var anyResult = new[] { empty, id1Only, id2Only, both };
-			var alwaysEmpty = new[] { empty };
+			var allResults = new[] { empty, id1Only, id2Only, both };
+			var allwaysEmpty = new[] { empty };
 
-			var queries = new (string Query, HashSet<long>[] ExpectedResults, List<HashSet<long>> ActualResults)[]
+			var queries = new (ConcurrentBag<HashSet<long>> ActualResults, HashSet<long>[] ExpectedResults, string Query)[]
 			{
-				("firstword1", id1OrEmpty, new List<HashSet<long>>()),
-				("firstword1 AND secondword1", id1OrEmpty, new List<HashSet<long>>()),
-				("firstword1 OR secondword1", id1OrEmpty, new List<HashSet<long>>()),
+				(new ConcurrentBag<HashSet<long>>(), id1OrEmpty, "firstword1"),
+				(new ConcurrentBag<HashSet<long>>(), id1OrEmpty, "firstword1 AND secondword1"),
+				(new ConcurrentBag<HashSet<long>>(), id1OrEmpty, "firstword1 OR secondword1"),
 
-				("firstword2", id2OrEmpty, new List<HashSet<long>>()),
-				("firstword2 AND secondword2", id2OrEmpty, new List<HashSet<long>>()),
-				("firstword2 OR secondword2", id2OrEmpty, new List<HashSet<long>>()),
+				(new ConcurrentBag<HashSet<long>>(), id2OrEmpty, "firstword2"),
+				(new ConcurrentBag<HashSet<long>>(), id2OrEmpty, "firstword2 AND secondword2"),
+				(new ConcurrentBag<HashSet<long>>(), id2OrEmpty, "firstword2 OR secondword2"),
 
-				("firstword1 OR secondword2", anyResult, new List<HashSet<long>>()),
-				("firstword1 AND secondword2", alwaysEmpty, new List<HashSet<long>>())
+				(new ConcurrentBag<HashSet<long>>(), allResults, "firstword1 OR secondword2"),
+				(new ConcurrentBag<HashSet<long>>(), allwaysEmpty, "firstword1 AND secondword2")
 			};
 
-			var parallelActions = new List<Action>();
-
-			for (int i = 0; i < updateCyclesCount; i++)
-			{
-				parallelActions.Add(() => _indexEngine.Update(id1, new StringReader(string.Join(" ", "firstword1 secondword1 secondword1")), CancellationToken.None));
-				parallelActions.Add(() => _indexEngine.Remove(id1, CancellationToken.None));
-				parallelActions.Add(() => _indexEngine.Update(id2, new StringReader(string.Join(" ", "firstword2 firstword2 secondword2")), CancellationToken.None));
-				parallelActions.Add(() => _indexEngine.Remove(id2, CancellationToken.None));
-
-				foreach (var query in queries)
-					parallelActions.Add(() => query.ActualResults.Add(new HashSet<long>(_indexEngine.Search(query.Query).ContentIds)));
-			}
+			var parallelActions = Enumerable.Range(0, updateCyclesCount)
+				.SelectMany(_ =>
+					new Action[]
+					{
+						() => _indexEngine.Update(id1, "firstword1 secondword1"),
+						() => _indexEngine.Update(id2, "firstword2 secondword2"),
+						() => _indexEngine.Remove(id1),
+						() => _indexEngine.Remove(id2)
+					}.Concat(queries.Select(q => (Action) (
+						() => q.ActualResults.Add(new HashSet<long>(_indexEngine.Search(q.Query).ContentIds)))
+					))
+				)
+				.ToList();
 
 			shuffle(parallelActions);
 
@@ -138,7 +139,7 @@ namespace IndexExercise.Index.Test
 			return queries;
 		}
 
-		private static void assertAllPossibleCorrectResultOccured(string query, HashSet<long>[] expectedResults, List<HashSet<long>> actualResults)
+		private static void assertAllPossibleCorrectResultOccured(string query, HashSet<long>[] expectedResults, IReadOnlyCollection<HashSet<long>> actualResults)
 		{
 			foreach (var expectedResult in expectedResults)
 			{
@@ -151,7 +152,7 @@ namespace IndexExercise.Index.Test
 			}
 		}
 
-		private static void assertAllActualResultsAreCorrect(string query, HashSet<long>[] expectedResults, List<HashSet<long>> actualResults)
+		private static void assertAllActualResultsAreCorrect(string query, HashSet<long>[] expectedResults, IReadOnlyCollection<HashSet<long>> actualResults)
 		{
 			foreach (var actualResult in actualResults)
 			{

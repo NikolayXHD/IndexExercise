@@ -3,15 +3,27 @@ using System.Collections.Generic;
 
 namespace IndexExercise.Index.Collections
 {
+	/// <summary>
+	/// A collection of unique <see cref="TElement"/>s that maintains them ordered by the order in 
+	/// which  they were added i.e. the keys are ordered in a queue. In difference from a regular 
+	/// queue <see cref="TryRemove"/> of arbitrary element is supported while the queue would only 
+	/// support removing the first <see cref="TElement"/>.
+	/// </summary>
 	public class RandomAccessQueue<TElement>
 	{
+		/// <summary>
+		/// A collection of unique <see cref="TElement"/>s that maintains them ordered by the order in 
+		/// which  they were added i.e. the keys are ordered in a queue. In difference from a regular 
+		/// queue <see cref="TryRemove"/> of arbitrary element is supported while the queue would only 
+		/// support removing the first <see cref="TElement"/>.
+		/// </summary>
 		public RandomAccessQueue()
 		{
 			_elements = new SortedSet<TElement>(Comparer<TElement>.Create((el1, el2) =>
 				Comparer<long>.Default.Compare(_priorities[el1], _priorities[el2])));
 		}
 
-		public bool Add(TElement element)
+		public bool TryEnqueue(TElement element)
 		{
 			lock (Sync)
 			{
@@ -26,7 +38,7 @@ namespace IndexExercise.Index.Collections
 			return true;
 		}
 
-		public TElement Dequeue()
+		public TElement TryDequeue()
 		{
 			lock (Sync)
 			{
@@ -41,20 +53,18 @@ namespace IndexExercise.Index.Collections
 			}
 		}
 
-		public TElement Peek()
+		public TElement TryPeek()
 		{
 			lock (Sync)
 			{
 				if (_elements.Count == 0)
 					return default(TElement);
 
-				var element = _elements.Min;
-
-				return element;
+				return _elements.Min;
 			}
 		}
 
-		public bool Remove(TElement element)
+		public bool TryRemove(TElement element)
 		{
 			lock (Sync)
 			{

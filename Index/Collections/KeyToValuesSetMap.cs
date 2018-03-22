@@ -2,8 +2,22 @@
 
 namespace IndexExercise.Index.Collections
 {
-	public class MultiDictionary<TKey, TValue>
+	/// <summary>
+	/// Map of <see cref="TKey"/>s to sets of unique <see cref="TValue"/>s
+	/// </summary>
+	public class KeyToValuesSetMap<TKey, TValue>
 	{
+		/// <summary>
+		/// Map of <see cref="TKey"/>s to sets of unique <see cref="TValue"/>s
+		/// </summary>
+		public KeyToValuesSetMap()
+		{
+		}
+
+		/// <summary>
+		/// Adds a <see cref="value"/> if it is still not associated with a <see cref="key"/>
+		/// </summary>
+		/// <returns>Returns false if the <see cref="value"/> is already associated with the <see cref="key"/></returns>
 		public bool Add(TKey key, TValue value)
 		{
 			lock (_sync)
@@ -18,6 +32,10 @@ namespace IndexExercise.Index.Collections
 			}
 		}
 
+		/// <summary>
+		/// Removes the <see cref="value"/> from a set accociated with a <see cref="key"/>
+		/// </summary>
+		/// <returns>Returns false if there was no <see cref="value"/> to remove</returns>
 		public bool Remove(TKey key, TValue value)
 		{
 			lock (_sync)

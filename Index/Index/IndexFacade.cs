@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security;
+using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.Collections;
 using IndexExercise.Index.FileSystem;
@@ -10,22 +11,34 @@ using IndexExercise.Index.Lucene;
 
 namespace IndexExercise.Index
 {
+	/// <summary>
+	/// Maintains an up-to-date index of content of specified files and directories
+	/// </summary>
 	public class IndexFacade : BackgroundLoopOwner
 	{
+		/// <summary>
+		/// Maintains an up-to-date index of content of specified files and directories
+		/// </summary>
+		/// <param name="indexEngine">Provides indexing functionality</param>
+		/// <param name="filesFilter">A filtering callback to determine wich files need to be indexed.
+		/// By default all files are indexed.</param>
+		/// <param name="encodingDetector">Provides encoding detection functionality. By default 
+		/// <see cref="Encoding.UTF8"/>is assumed.</param>
 		public static IndexFacade Create(
 			IIndexEngine indexEngine = null,
-			Mirror.FilesFilter filesFilter = null)
+			Mirror.FilesFilter filesFilter = null,
+			Func<FileInfo, Encoding> encodingDetector = null)
 		{
 			indexEngine = indexEngine ?? new LuceneIndexEngine();
 			var mirror = new Mirror(new Watcher(), new SequentialId(), filesFilter);
-			var taskProcessor = new IndexingTaskProcessor(indexEngine);
+			var taskProcessor = new IndexingTaskProcessor(indexEngine, encodingDetector);
 
 			return new IndexFacade(mirror, taskProcessor, indexEngine);
 		}
 
-		public static IndexFacade Create(string indexDirectory = null, Mirror.FilesFilter filesFilter = null) =>
-			Create(new LuceneIndexEngine(indexDirectory), filesFilter);
-
+		/// <summary>
+		/// Maintains an up-to-date index of content of specified files and directories
+		/// </summary>
 		public IndexFacade(
 			Mirror mirror,
 			IndexingTaskProcessor indexingTaskProcessor,
@@ -41,12 +54,10 @@ namespace IndexExercise.Index
 			_indexingTaskProcessor.FileAccessError += fileAccessError;
 		}
 
-		public override void Start()
+		public override Task Start()
 		{
 			_indexEngine.Initialize();
-			_mirror.Start();
-
-			base.Start();
+			return Task.WhenAll(_mirror.Start(), base.Start());
 		}
 
 		public override void Dispose()
@@ -60,21 +71,21 @@ namespace IndexExercise.Index
 
 		protected override async Task BackgroundLoopIteration()
 		{
-			var fileToRemove = _removingFromIndexQueue.Dequeue();
+			var fileToRemove = _removingFromIndexQueue.TryDequeue();
 			if (fileToRemove != null)
 			{
 				processRemoveFromIndexTask(fileToRemove);
 				return;
 			}
 
-			var fileToAdd = _addingToIndexQueue.Dequeue();
+			var fileToAdd = _addingToIndexQueue.TryDequeue();
 			if (fileToAdd != null)
 			{
 				processAddToIndexTask(fileToAdd);
 				return;
 			}
 
-			var (fileToRepeat, postponedTask) = _repetitionTasks.Dequeue();
+			var (fileToRepeat, postponedTask) = _repetitionTasks.TryDequeue();
 			if (fileToRepeat != null)
 			{
 				processAddToIndexTask(fileToRepeat, postponedTask);
@@ -128,7 +139,7 @@ namespace IndexExercise.Index
 			_repetitionTasks.Remove(file);
 
 			var currentTask = _currentTask;
-			if (currentTask.Entry == file && currentTask.Task.Action == IndexingAction.AddContent)
+			if (file == currentTask.Entry && currentTask.Task.Action == IndexingAction.AddContent)
 				currentTask.Task.Cancel();
 
 			if (!_filesByContentId.ContainsKey(file.Data.ContentId))
@@ -136,7 +147,7 @@ namespace IndexExercise.Index
 				// after removing from _addingToIndexQueue so that
 				// the task never coexists in both _addingToIndexQueue and _removingFromIndexQueue
 				// such coexistence could lead to processing element creation after its deletion
-				_removingFromIndexQueue.Add(file);
+				_removingFromIndexQueue.TryEnqueue(file);
 			}
 		}
 
@@ -176,7 +187,7 @@ namespace IndexExercise.Index
 		private void processRemoveFromIndexTask(FileEntry<Metadata> fileToRemove)
 		{
 			var indexingTask = new IndexingTask(IndexingAction.RemoveContent, fileToRemove.Data.ContentId, CancellationToken);
-			
+
 			BeginProcessingTask?.Invoke(this, indexingTask);
 
 			_currentTask = (indexingTask, fileToRemove);
@@ -234,10 +245,10 @@ namespace IndexExercise.Index
 		private readonly RandomAccessQueue<FileEntry<Metadata>> _removingFromIndexQueue =
 			new RandomAccessQueue<FileEntry<Metadata>>();
 
-		private readonly QueueDictionary<FileEntry<Metadata>, IndexingTask> _repetitionTasks =
-			new QueueDictionary<FileEntry<Metadata>, IndexingTask>();
+		private readonly RandomAccessQueueMap<FileEntry<Metadata>, IndexingTask> _repetitionTasks =
+			new RandomAccessQueueMap<FileEntry<Metadata>, IndexingTask>();
 
-		private readonly MultiDictionary<long, FileEntry<Metadata>> _filesByContentId =
-			new MultiDictionary<long, FileEntry<Metadata>>();
+		private readonly KeyToValuesSetMap<long, FileEntry<Metadata>> _filesByContentId =
+			new KeyToValuesSetMap<long, FileEntry<Metadata>>();
 	}
 }

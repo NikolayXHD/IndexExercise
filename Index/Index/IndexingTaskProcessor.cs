@@ -9,9 +9,10 @@ namespace IndexExercise.Index
 {
 	public class IndexingTaskProcessor : IDisposable
 	{
-		public IndexingTaskProcessor(IIndexEngine indexEngine)
+		public IndexingTaskProcessor(IIndexEngine indexEngine, Func<FileInfo, Encoding> encodingDetector = null)
 		{
 			_indexEngine = indexEngine;
+			_encodingDetector = encodingDetector;
 		}
 
 		public void ProcessTask(IndexingTask task)
@@ -36,7 +37,7 @@ namespace IndexExercise.Index
 			if (task.Length >= MaxFileLength)
 				_indexEngine.Remove(task.ContentId, task.CancellationToken);
 
-			var stream = openFile(task, task.Path);
+			var (stream, encoding) = openFile(task, task.Path);
 
 			if (stream == null)
 				return;
@@ -44,14 +45,20 @@ namespace IndexExercise.Index
 			FileOpened?.Invoke(this, task);
 
 			using (stream)
-			using (var input = new StreamReader(stream, Encoding.UTF8))
+			using (var input = new StreamReader(stream, encoding))
 				_indexEngine.Update(task.ContentId, input, task.CancellationToken);
 		}
 
-		private Stream openFile(IndexingTask task, string path)
+		private (Stream stream, Encoding encoding) openFile(IndexingTask task, string path)
 		{
 			string hardlinkPath = tryCreateHardlink(path);
-			
+
+			Encoding encoding;
+			if (_encodingDetector != null)
+				encoding = _encodingDetector(new FileInfo(path));
+			else
+				encoding = Encoding.UTF8;
+
 			string pathToOpen = path;
 			var fileOptions = FileOptions.SequentialScan;
 
@@ -71,15 +78,18 @@ namespace IndexExercise.Index
 					BufferSize,
 					fileOptions);
 
-				return stream;
+				return (stream, encoding);
 			}
 			catch (Exception ex)
 			{
+				if (hardlinkPath != null)
+					File.Delete(hardlinkPath);
+
 				switch (ex)
 				{
 					case DirectoryNotFoundException _:
 					case FileNotFoundException _:
-						break;
+						return (null, null);
 
 					case SecurityException _:
 					case UnauthorizedAccessException _:
@@ -87,14 +97,12 @@ namespace IndexExercise.Index
 						if (task.Attempts < MaxReadAttempts)
 							task.HasToBeRepeated = true;
 						FileAccessError?.Invoke(this, new EntryAccessError(EntryType.File, path, ex));
-						break;
+						return (null, null);
 
 					default:
 						throw;
 				}
 			}
-
-			return null;
 		}
 
 		/// <summary>
@@ -168,5 +176,6 @@ namespace IndexExercise.Index
 		public int BufferSize { get; set; } = 4096;
 
 		private readonly IIndexEngine _indexEngine;
+		private readonly Func<FileInfo, Encoding> _encodingDetector;
 	}
 }

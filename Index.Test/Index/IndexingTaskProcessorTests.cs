@@ -60,56 +60,58 @@ namespace IndexExercise.Index.Test
 			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Enumerable.Empty<long>()));
 		}
 
+
+
 		[Test]
 		public void Currently_indexed_file_Can_be_deleted()
 		{
 			const long contentId = 11L;
 
-			bool fileDeleted = false;
-
 			_taskProcessor.FileOpened += (sender, task) =>
 			{
 				File.Delete(task.Path);
-				fileDeleted = true;
-
-				_util.SmallDelay().Wait();
 				Assert.That(File.Exists(task.Path), Is.False);
 			};
 
 			var indexingTask = createAdditionTaskForNewFile(contentId, content: "textual file content");
-
 			processTask(indexingTask);
-			Assert.That(fileDeleted, Is.True);
+
+			// to make sure FileOpened actually happened
+			Assert.That(File.Exists(indexingTask.Path), Is.False);
 		}
 
 		[Test]
-		public void When_delete_currently_indexed_file_Then_deletion_may_be_gracefully_handled()
+		public void When_delete_currently_indexed_file_Then_deletion_is_detected_before_indexing_completes()
 		{
 			const long contentId = 11L;
 
-			bool fileDeleted = false;
-
 			_taskProcessor.FileOpened += (sender, task) =>
 			{
-				File.Delete(task.Path);
-				fileDeleted = true;
+				_util.Watch(EntryType.Directory);
 
+				File.Delete(task.Path);
 				_util.SmallDelay().Wait();
+
+				_util.AssertDetected(WatcherChangeTypes.Deleted, task.Path);
 			};
 
 			var indexingTask = createAdditionTaskForNewFile(contentId, content: "textual file content");
-
-			_util.Watcher.ChangeDetected += (sender, change) =>
-			{
-				if (change.ChangeType == WatcherChangeTypes.Deleted && PathString.Comparer.Equals(change.Path, indexingTask.Path))
-					indexingTask.Cancel();
-			};
-
-			_util.Watch(EntryType.Directory);
-
 			processTask(indexingTask);
 
-			Assert.That(fileDeleted, Is.True);
+			// to make sure FileOpened actually happened
+			Assert.That(File.Exists(indexingTask.Path), Is.False);
+		}
+
+		[Test]
+		public void When_addition_task_is_canceled_Then_index_is_not_changed()
+		{
+			const long contentId = 11L;
+
+			_taskProcessor.FileOpened += (sender, task) => task.Cancel();
+
+			var indexingTask = createAdditionTaskForNewFile(contentId, content: "textual file content");
+			processTask(indexingTask);
+
 			Assert.That(_indexEngine.Search("textual").ContentIds, Is.EquivalentTo(Enumerable.Empty<long>()));
 		}
 

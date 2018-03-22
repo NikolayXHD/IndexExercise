@@ -43,26 +43,26 @@ namespace IndexExercise.Index.FileSystem
 
 		protected override async Task BackgroundLoopIteration()
 		{
-			var change = _changeQueue.Dequeue();
+			var change = _changeQueue.TryDequeue();
 			if (change != null)
 			{
 				processChange(change);
 				return;
 			}
 
-			var createdEntry = _createdEntriesQueue.Peek();
+			var createdEntry = _createdEntriesQueue.TryPeek();
 			if (createdEntry != null)
 			{
 				processCreatedEntry(createdEntry);
-				_createdEntriesQueue.Remove(createdEntry);
+				_createdEntriesQueue.TryRemove(createdEntry);
 				return;
 			}
 
-			var deletedEntry = _deletedEntriesQueue.Peek();
+			var deletedEntry = _deletedEntriesQueue.TryPeek();
 			if (deletedEntry != null)
 			{
 				processDeletedEntry(deletedEntry);
-				_deletedEntriesQueue.Remove(deletedEntry);
+				_deletedEntriesQueue.TryRemove(deletedEntry);
 				return;
 			}
 
@@ -71,12 +71,12 @@ namespace IndexExercise.Index.FileSystem
 			await IdleDelayTask();
 		}
 
-		public override void Start()
+		public override Task Start()
 		{
 			// before base.Start() to make sure the watcher is allways enabled
 			// when BackgroundLoopIteration is executed
 			_watcher.Enabled = true;
-			base.Start();
+			return base.Start();
 		}
 
 		public override void Dispose()
@@ -93,7 +93,7 @@ namespace IndexExercise.Index.FileSystem
 			{
 				_watchTargetStates[target] = WatchTargetState.Suspended;
 
-				var watchedLocation = _watchedLocations.Find(target.Path);
+				var watchedLocation = _watchedLocations.GetEntry(target.Path);
 
 				if (watchedLocation == null)
 				{
@@ -109,13 +109,13 @@ namespace IndexExercise.Index.FileSystem
 			}
 		}
 
-		public Entry<Metadata> Find(string path) => _root.Find(path);
+		public Entry<Metadata> Find(string path) => _root.GetEntry(path);
 
 
 
 		private void changeDetected(object sender, Change change)
 		{
-			_changeQueue.Add(change);
+			_changeQueue.TryEnqueue(change);
 		}
 
 		private void processChange(Change change)
@@ -298,7 +298,7 @@ namespace IndexExercise.Index.FileSystem
 
 			// We don't know what happens to the watched directory while the watcher is broken.
 			// To reflect this we assume the watched directory is deleted.
-			_changeQueue.Add(new Change(EntryType.Directory, WatcherChangeTypes.Deleted, watchedDirectory));
+			_changeQueue.TryEnqueue(new Change(EntryType.Directory, WatcherChangeTypes.Deleted, watchedDirectory));
 		}
 
 		private void suspendRedundantTarget(WatchTarget target)
@@ -316,7 +316,7 @@ namespace IndexExercise.Index.FileSystem
 
 			lock (_syncWatcher)
 			{
-				var watchedTarget = _watchedLocations.Find(path);
+				var watchedTarget = _watchedLocations.GetEntry(path);
 
 				if (watchedTarget?.Data.Count > 0)
 					return true;
@@ -447,7 +447,7 @@ namespace IndexExercise.Index.FileSystem
 
 		private void processChangedOrCreatedEntry(EntryType type, string path)
 		{
-			var existingEntry = _root.Find(path);
+			var existingEntry = _root.GetEntry(path);
 
 			if (existingEntry == null)
 			{
@@ -468,7 +468,7 @@ namespace IndexExercise.Index.FileSystem
 
 		private void processFoundEntry(EntryType type, string path)
 		{
-			var existingEntry = _root.Find(path);
+			var existingEntry = _root.GetEntry(path);
 
 			if (existingEntry == null)
 			{
@@ -485,12 +485,12 @@ namespace IndexExercise.Index.FileSystem
 
 			if (type == EntryType.Directory)
 				// non_unique_created_directory_enqueue_attempts
-				_createdEntriesQueue.Add(existingEntry);
+				_createdEntriesQueue.TryEnqueue(existingEntry);
 		}
 
 		private void processDeletedEntry(string path)
 		{
-			var existingEntry = _root.Find(path);
+			var existingEntry = _root.GetEntry(path);
 
 			if (existingEntry == null)
 				return;
@@ -500,7 +500,7 @@ namespace IndexExercise.Index.FileSystem
 
 		private void processRenamedEntry(EntryType type, string path, string oldPath)
 		{
-			var existingEntry = _root.Find(oldPath);
+			var existingEntry = _root.GetEntry(oldPath);
 			if (existingEntry == null)
 			{
 				processChangedOrCreatedEntry(type, path);
@@ -518,7 +518,7 @@ namespace IndexExercise.Index.FileSystem
 
 			var entry = _root.Add(type, path, new Metadata(contentId));
 
-			bool added = _createdEntriesQueue.Add(entry);
+			bool added = _createdEntriesQueue.TryEnqueue(entry);
 
 			// non_unique_created_directory_enqueue_attempts
 			if (!added && type == EntryType.File)
@@ -528,12 +528,12 @@ namespace IndexExercise.Index.FileSystem
 		private void deleteEntry(Entry<Metadata> entry)
 		{
 			_root.Remove(entry);
-			_createdEntriesQueue.Remove(entry);
+			_createdEntriesQueue.TryRemove(entry);
 
 			// after removing from _createdEntriesQueue
 			// so that the entry never coexists in both _createdEntriesQueue and _deletedEntriesQueue
 			// such coexistence could lead to processing element creation after its deletion
-			_deletedEntriesQueue.Add(entry);
+			_deletedEntriesQueue.TryEnqueue(entry);
 		}
 
 

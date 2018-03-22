@@ -15,8 +15,8 @@ namespace IndexExercise.Index.Test
 			_lexerFactory = new DefaultLexerFactory();
 		}
 
+		[TestCase("Spears were 1.5 metres long.", "spears", "were", "1", "5", "metres", "long")]
 		[TestCase("Пасхалия на 312—412 годы;", "пасхалия", "на", "312", "412", "годы")] // Russian
-		[TestCase("Spears were up to 1.5 metres long.", "spears", "were", "up", "to", "1", "5", "metres", "long")]
 		[TestCase("末尾の年表も参照。", "末", "尾", "の", "年", "表", "も", "参", "照")] // Japanese
 		[TestCase("術：變化術", "術", "變", "化", "術")] // Chinese
 		public void Lexer_splits_text_by_words(string inputString, params string[] expectedTokens)

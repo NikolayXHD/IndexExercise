@@ -80,6 +80,43 @@ namespace IndexExercise.Index.Test
 
 
 
+		[Test]
+		public async Task When_files_are_quickly_added_and_removed_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+		[Test]
+		public async Task When_files_are_quickly_changed_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+		[Test]
+		public async Task When_files_are_quickly_renamed_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+		[Test]
+		public async Task When_files_are_quickly_moved_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+		[Test]
+		public async Task When_directories_are_quickly_renamed_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+		[Test]
+		public async Task When_directories_are_quickly_moved_Then_eventually_search_result_becomes_up_to_date()
+		{
+
+		}
+
+
 		[SetUp]
 		public void Setup()
 		{

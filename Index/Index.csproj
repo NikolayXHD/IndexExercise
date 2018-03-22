@@ -65,7 +65,7 @@
     <Compile Include="FileSystem\Model\Find.cs" />
     <Compile Include="FileSystem\Model\Metadata.cs" />
     <Compile Include="Collections\PriorityQueue.cs" />
-    <Compile Include="Collections\QueueDictionary.cs" />
+    <Compile Include="Collections\RandomAccessQueueMap.cs" />
     <Compile Include="FileSystem\PathString.cs" />
     <Compile Include="FileSystem\Model\SequentialId.cs" />
     <Compile Include="FileSystem\Model\DirectoryEntry.cs" />
@@ -84,7 +84,7 @@
     <Compile Include="FileSystem\Model\WatchTargetState.cs" />
     <Compile Include="Index\IndexFacade.cs" />
     <Compile Include="FileSystem\Watcher.cs" />
-    <Compile Include="Collections\MultiDictionary.cs" />
+    <Compile Include="Collections\KeyToValuesSetMap.cs" />
     <Compile Include="Index\Lucene\CharSequenceWrapper.cs" />
     <Compile Include="Index\Lucene\TokenExtension.cs" />
     <Compile Include="Index\Model\ContentSearchResult.cs" />

@@ -13,7 +13,7 @@ namespace IndexExercise.Index
 			CancellationToken = _cancellationTokenSource.Token;
 		}
 
-		public virtual void Start()
+		public virtual async Task Start()
 		{
 			lock (SyncRoot)
 			{
@@ -26,17 +26,17 @@ namespace IndexExercise.Index
 				_started = true;
 			}
 
-			_task = Task.Run(backgroundWorkLoop, CancellationToken).ContinueWith(task =>
+			_task = Task.Run(backgroundWorkLoop, CancellationToken);
+
+			try
 			{
-				if (task.Exception == null)
-					return;
-
-				var exception = task.Exception.Flatten();
-				BackgorundLoopFalied?.Invoke(this, exception);
-
-				// otherwise this continuation task is not considered failed
-				throw exception;
-			});
+				await _task;
+			}
+			catch (Exception ex)
+			{
+				BackgorundLoopFailed?.Invoke(this, ex);
+				throw;
+			}
 		}
 
 
@@ -73,9 +73,18 @@ namespace IndexExercise.Index
 			catch (AggregateException ex) when (ex.InnerExceptions.All(inner => inner is OperationCanceledException))
 			{
 			}
+			catch (AggregateException ex)
+			{
+				var flatten = ex.Flatten();
+
+				if (flatten.InnerExceptions.Count == 1)
+					throw flatten.InnerExceptions[0];
+
+				throw flatten;
+			}
 		}
 
-		public event EventHandler<Exception> BackgorundLoopFalied;
+		public event EventHandler<Exception> BackgorundLoopFailed;
 
 		protected abstract Task BackgroundLoopIteration();
 

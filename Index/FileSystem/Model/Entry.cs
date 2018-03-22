@@ -47,6 +47,7 @@ namespace IndexExercise.Index.FileSystem
 				.Reverse()
 				.ToArray();
 
+			// when the entry or it's ancestor gets removed, the farthest ancestor is no longer a RootEntry
 			if (entries[0].Parent?.Type != EntryType.Root)
 				return null;
 

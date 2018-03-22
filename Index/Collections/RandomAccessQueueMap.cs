@@ -2,9 +2,21 @@
 
 namespace IndexExercise.Index.Collections
 {
-	public class QueueDictionary<TKey, TValue>
+	/// <summary>
+	/// A <see cref="TKey"/> - <see cref="TValue"/> map that maintains <see cref="TKey"/>s ordered by
+	/// the order in which they were added i.e. the keys are ordered in a queue. In difference from
+	/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
+	/// only support removing the first <see cref="TValue"/>.
+	/// </summary>
+	public class RandomAccessQueueMap<TKey, TValue>
 	{
-		public QueueDictionary()
+		/// <summary>
+		/// A <see cref="TKey"/> - <see cref="TValue"/> map that maintains <see cref="TKey"/>s ordered by
+		/// the order in which they were added i.e. the keys are ordered in a queue. In difference from
+		/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
+		/// only support removing the first <see cref="TValue"/>.
+		/// </summary>
+		public RandomAccessQueueMap()
 		{
 			_elements = new SortedSet<TKey>(Comparer<TKey>.Create((el1, el2) =>
 				Comparer<long>.Default.Compare(_priorities[el1], _priorities[el2])));
@@ -20,7 +32,7 @@ namespace IndexExercise.Index.Collections
 			}
 		}
 
-		public (TKey key, TValue value) Dequeue()
+		public (TKey key, TValue value) TryDequeue()
 		{
 			lock (_sync)
 			{

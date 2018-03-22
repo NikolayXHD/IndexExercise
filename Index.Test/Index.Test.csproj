@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="BackgroundLoopTests.cs" />
     <Compile Include="BackgroundLoopThrowing.cs" />
+    <Compile Include="Collections\BinarySearchTests.cs" />
     <Compile Include="FileSystem\IndexingMetadataTests.cs" />
     <Compile Include="FileSystem\Utils\FileSystemUtility.cs" />
     <Compile Include="FileSystem\MirrorFilterTests.cs" />
@@ -78,6 +79,7 @@
     <Compile Include="Index\IndexEngineExtension.cs" />
     <Compile Include="Index\IndexFacadeTests.cs" />
     <Compile Include="Index\IndexingTaskProcessorTests.cs" />
+    <Compile Include="Index\LexerFactoryExtension.cs" />
     <Compile Include="Index\LuceneIndexEngineTests.cs" />
   </ItemGroup>
   <ItemGroup>

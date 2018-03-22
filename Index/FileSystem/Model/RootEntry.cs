@@ -11,7 +11,7 @@ namespace IndexExercise.Index.FileSystem
 			_defaultData = defaultData;
 		}
 
-		public Entry<TData> Find(string path)
+		public Entry<TData> GetEntry(string path)
 		{
 			lock (Sync)
 			{

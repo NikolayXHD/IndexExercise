@@ -16,10 +16,7 @@ namespace IndexExercise.Index.Test
 			loopOwner.Start();
 
 			await Task.Delay(millisecondsDelay: 100);
-			
-			var exception = Assert.Throws<AggregateException>(loopOwner.Dispose);
-			var inner = exception.Flatten().InnerException;
-			Assert.That(inner, Is.InstanceOf<InvalidOperationException>());
+			Assert.Throws<InvalidOperationException>(loopOwner.Dispose);
 		}
 	}
 }

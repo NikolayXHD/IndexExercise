@@ -23,7 +23,7 @@ namespace IndexExercise.Index.Test
 			Mirror.ProcessingDeletedEntry += processingDeletedEntry;
 			Mirror.Idle += watcherIdle;
 			Mirror.EntryAccessError += entryAccessError;
-			Mirror.BackgorundLoopFalied += backgroundLoopFailed;
+			Mirror.BackgorundLoopFailed += backgroundLoopFailed;
 		}
 
 		public override void Dispose()

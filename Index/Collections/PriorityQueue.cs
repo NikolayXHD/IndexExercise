@@ -4,15 +4,15 @@ using System.Collections.Generic;
 namespace IndexExercise.Index.Collections
 {
 	/// <summary>
-	/// An ordered collection of elements.
-	/// <see cref="Dequeue"/> returns an element with minumum priority.
+	/// An collection of <see cref="TElement"/>s ordered by a supplied <see cref="TPriority"/> value.
+	/// <see cref="TryDequeue"/> returns an <see cref="TElement"/> with minumum <see cref="TPriority"/>.
 	/// </summary>
 	public class PriorityQueue<TElement, TPriority>
 		where TPriority : IComparable<TPriority>
 	{
 		/// <summary>
-		/// An ordered collection of elements.
-		/// <see cref="Dequeue"/> returns an element with minumum priority.
+		/// An collection of <see cref="TElement"/> ordered by a supplied <see cref="TPriority"/> value.
+		/// <see cref="TryDequeue"/> returns an <see cref="TElement"/> with minumum <see cref="TPriority"/>.
 		/// </summary>
 		public PriorityQueue()
 		{
@@ -20,8 +20,8 @@ namespace IndexExercise.Index.Collections
 		}
 
 		/// <summary>
-		/// Adds an element.
-		/// <see cref="Dequeue"/> returns an element with minumum <see cref="priority"/>.
+		/// Adds an <see cref="element"/>
+		/// <see cref="TryDequeue"/> returns an <see cref="element"/> with minumum <see cref="priority"/>.
 		/// </summary>
 		public void Enqueue(TElement element, TPriority priority)
 		{
@@ -32,6 +32,9 @@ namespace IndexExercise.Index.Collections
 			}
 		}
 
+		/// <summary>
+		/// Removes an <see cref="element"/> if it exists
+		/// </summary>
 		public bool Remove(TElement element)
 		{
 			lock (_sync)
@@ -47,11 +50,10 @@ namespace IndexExercise.Index.Collections
 		}
 
 		/// <summary>
-		/// Removes and returns an element with minimum priority.
+		/// Removes and returns an <see cref="TElement"/> with minimum priority.
 		/// When empty returns default(<see cref="TElement"/>).
 		/// </summary>
-		/// <returns></returns>
-		public TElement Dequeue()
+		public TElement TryDequeue()
 		{
 			lock (_sync)
 			{
