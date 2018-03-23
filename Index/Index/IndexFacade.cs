@@ -78,7 +78,7 @@ namespace IndexExercise.Index
 				return;
 			}
 
-			var fileToAdd = _addingToIndexQueue.TryDequeue();
+			var fileToAdd = _addingToIndexQueue.TryRemoveMin();
 			if (fileToAdd != null)
 			{
 				processAddToIndexTask(fileToAdd);
@@ -97,12 +97,12 @@ namespace IndexExercise.Index
 
 		public void Watch(WatchTarget target) => _mirror.Watch(target);
 
-		public FileSearchResult Search(string searchQuery)
+		public FileSearchResult Search(IQuery query)
 		{
-			var contentSearchResult = _indexEngine.Search(searchQuery);
+			var contentSearchResult = _indexEngine.Search(query);
 
-			if (contentSearchResult.IsSyntaxError)
-				return FileSearchResult.Error(contentSearchResult.SyntaxError);
+			if (contentSearchResult.HasSyntaxErrors)
+				return FileSearchResult.Error(contentSearchResult.SyntaxErrors);
 
 			var fileNames = contentSearchResult.ContentIds
 				.SelectMany(findFiles,
@@ -128,13 +128,16 @@ namespace IndexExercise.Index
 			fileEntry.Data.Length = length;
 
 			_filesByContentId.Add(fileEntry.Data.ContentId, fileEntry);
-			_addingToIndexQueue.Enqueue(fileEntry, fileEntry.Data.Length);
+			_addingToIndexQueue.Add(fileEntry, fileEntry.Data.Length);
 		}
 
 		private void remove(FileEntry<Metadata> file)
 		{
 			_filesByContentId.Remove(file.Data.ContentId, file);
 
+			// The file was removed so there is no need to index it.
+			// If another file happens to be created with the same path,
+			// it will be enqueued and processed normally by detecting and processing the creation.
 			_addingToIndexQueue.Remove(file);
 			_repetitionTasks.Remove(file);
 
@@ -226,7 +229,7 @@ namespace IndexExercise.Index
 			}
 		}
 
-
+		public IQueryBuilder QueryBuilder => _indexEngine.QueryBuilder;
 
 		public event EventHandler<EntryAccessError> EntryAccessError;
 		public event EventHandler<IndexingTask> BeginProcessingTask;
@@ -239,16 +242,16 @@ namespace IndexExercise.Index
 		private readonly IndexingTaskProcessor _indexingTaskProcessor;
 		private readonly IIndexEngine _indexEngine;
 
-		private readonly PriorityQueue<FileEntry<Metadata>, long> _addingToIndexQueue =
-			new PriorityQueue<FileEntry<Metadata>, long>();
+		private readonly OrderedSet<FileEntry<Metadata>, long> _addingToIndexQueue =
+			new OrderedSet<FileEntry<Metadata>, long>();
 
-		private readonly RandomAccessQueue<FileEntry<Metadata>> _removingFromIndexQueue =
-			new RandomAccessQueue<FileEntry<Metadata>>();
+		private readonly FifoSet<FileEntry<Metadata>> _removingFromIndexQueue =
+			new FifoSet<FileEntry<Metadata>>();
 
-		private readonly RandomAccessQueueMap<FileEntry<Metadata>, IndexingTask> _repetitionTasks =
-			new RandomAccessQueueMap<FileEntry<Metadata>, IndexingTask>();
+		private readonly FifoMap<FileEntry<Metadata>, IndexingTask> _repetitionTasks =
+			new FifoMap<FileEntry<Metadata>, IndexingTask>();
 
-		private readonly KeyToValuesSetMap<long, FileEntry<Metadata>> _filesByContentId =
-			new KeyToValuesSetMap<long, FileEntry<Metadata>>();
+		private readonly Grouping<long, FileEntry<Metadata>> _filesByContentId =
+			new Grouping<long, FileEntry<Metadata>>();
 	}
 }

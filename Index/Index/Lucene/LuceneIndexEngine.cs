@@ -22,9 +22,7 @@ namespace IndexExercise.Index.Lucene
 			_writerLexer = lexerFactory.CreateLexer();
 			_writerAnalyzer = new GenericAnalyzer(_writerLexer);
 
-			var queryParserLexer = lexerFactory.CreateLexer();
-			var queryParserAnalyzer = new GenericAnalyzer(queryParserLexer);
-			_queryParser = new QueryParser(LuceneVersion.LUCENE_48, ContentFieldName, queryParserAnalyzer);
+			QueryBuilder = new LuceneQueryBuilder(lexerFactory, ContentFieldName);
 		}
 
 		public void Initialize()
@@ -72,24 +70,14 @@ namespace IndexExercise.Index.Lucene
 			}
 		}
 
-		public ContentSearchResult Search(string searchQuery)
+		public ContentSearchResult Search(IQuery query)
 		{
-			Query query;
+			var queryWrapper = (QueryWrapper) query;
 
-			try
-			{
-				lock (_queryParser)
-				{
-					// QueryParser is not thread safe
-					query = _queryParser.Parse(searchQuery);
-				}
-			}
-			catch (ParseException ex)
-			{
-				return ContentSearchResult.Error(ex.Message);
-			}
+			if (queryWrapper.HasSyntaxErrors)
+				return ContentSearchResult.Error(queryWrapper.SyntaxErrors);
 
-			return ContentSearchResult.Success(findContentIds(query));
+			return ContentSearchResult.Success(findContentIds(queryWrapper.LuceneQuery));
 		}
 
 		private IEnumerable<long> findContentIds(Query query)
@@ -117,8 +105,6 @@ namespace IndexExercise.Index.Lucene
 			}
 		}
 
-
-
 		private static Term getContentIdTerm(long contentId)
 		{
 			var contentIdBytes = new BytesRef();
@@ -127,12 +113,17 @@ namespace IndexExercise.Index.Lucene
 			return idTerm;
 		}
 
+
+
+		public IQueryBuilder QueryBuilder { get; }
+
+
+
 		private FSDirectory _index;
 		private IndexWriter _indexWriter;
 
 		private readonly ILexer _writerLexer;
 		private readonly GenericAnalyzer _writerAnalyzer;
-		private readonly QueryParser _queryParser;
 
 		private readonly string _indexDirectory;
 

@@ -29,11 +29,11 @@ namespace IndexExercise.Index.Test
 
 		[TestCase( /* caseSensitive */ true, "Speed: 210 MPH", "Speed", "210", "MPH")]
 		[TestCase( /* caseSensitive */ false, "Speed: 210 MPH", "speed", "210", "mph")]
-		public void Lexer_honors_case_sensitivity_property(bool caseSensitive, string inputString, params string[] expectedTokens)
+		public void Lexer_honors_preserving_case_property(bool caseSensitive, string inputString, params string[] expectedTokens)
 		{
 			var input = new StringReader(inputString);
 
-			_lexerFactory.IsCaseSensitive = caseSensitive;
+			_lexerFactory.IsPreservingCase = caseSensitive;
 			var parsedToken = _lexerFactory.Parse(input).Select(_ => _.ToString()).ToArray();
 
 			Assert.That(parsedToken, Is.EquivalentTo(expectedTokens));

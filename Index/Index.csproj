@@ -57,15 +57,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\Extensions.cs" />
+    <Compile Include="Collections\ListExtensions.cs" />
     <Compile Include="FileSystem\HardLinkUtility.cs" />
     <Compile Include="FileSystem\AlternativeDataStream.cs" />
     <Compile Include="FileSystem\IndexingMetadataUtility.cs" />
     <Compile Include="FileSystem\Model\EntryAccessError.cs" />
     <Compile Include="FileSystem\Model\Find.cs" />
     <Compile Include="FileSystem\Model\Metadata.cs" />
-    <Compile Include="Collections\PriorityQueue.cs" />
-    <Compile Include="Collections\RandomAccessQueueMap.cs" />
+    <Compile Include="Collections\OrderedSet.cs" />
+    <Compile Include="Collections\FifoMap.cs" />
     <Compile Include="FileSystem\PathString.cs" />
     <Compile Include="FileSystem\Model\SequentialId.cs" />
     <Compile Include="FileSystem\Model\DirectoryEntry.cs" />
@@ -79,12 +79,17 @@
     <Compile Include="FileSystem\Model\RootEntry.cs" />
     <Compile Include="BackgroundLoopOwner.cs" />
     <Compile Include="FileSystem\Model\WatcherErrorArgs.cs" />
-    <Compile Include="Collections\RandomAccessQueue.cs" />
+    <Compile Include="Collections\FifoSet.cs" />
     <Compile Include="FileSystem\WatcherPathInspector.cs" />
     <Compile Include="FileSystem\Model\WatchTargetState.cs" />
     <Compile Include="Index\IndexFacade.cs" />
     <Compile Include="FileSystem\Watcher.cs" />
-    <Compile Include="Collections\KeyToValuesSetMap.cs" />
+    <Compile Include="Collections\Grouping.cs" />
+    <Compile Include="Index\Interface\IQuery.cs" />
+    <Compile Include="Index\Interface\IQueryBuilder.cs" />
+    <Compile Include="Index\Model\BoolOperator.cs" />
+    <Compile Include="Index\Lucene\LuceneQueryBuilder.cs" />
+    <Compile Include="Index\Lucene\QueryWrapper.cs" />
     <Compile Include="Index\Lucene\CharSequenceWrapper.cs" />
     <Compile Include="Index\Lucene\TokenExtension.cs" />
     <Compile Include="Index\Model\ContentSearchResult.cs" />

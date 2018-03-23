@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace IndexExercise.Index.Collections
 {
-	internal static class Extensions
+	internal static class ListExtensions
 	{
 		/// <summary>
 		/// Performs a binary search of the first element that meets a specified <see cref="criterion"/>.

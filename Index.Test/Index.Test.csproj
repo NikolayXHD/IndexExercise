@@ -77,10 +77,12 @@
     <Compile Include="FileSystem\Utils\WatchUtilityBase.cs" />
     <Compile Include="Index\DefaultLexerTests.cs" />
     <Compile Include="Index\IndexEngineExtension.cs" />
+    <Compile Include="Index\IndexFacadeExtension.cs" />
     <Compile Include="Index\IndexFacadeTests.cs" />
     <Compile Include="Index\IndexingTaskProcessorTests.cs" />
     <Compile Include="Index\LexerFactoryExtension.cs" />
-    <Compile Include="Index\LuceneIndexEngineTests.cs" />
+    <Compile Include="Index\LuceneEngineQueriesTests.cs" />
+    <Compile Include="Index\LuceneEngineTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Index\Index.csproj">

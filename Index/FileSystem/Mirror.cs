@@ -54,6 +54,7 @@ namespace IndexExercise.Index.FileSystem
 			if (createdEntry != null)
 			{
 				processCreatedEntry(createdEntry);
+				// concurrent_removal_from_created_entries_queue
 				_createdEntriesQueue.TryRemove(createdEntry);
 				return;
 			}
@@ -62,7 +63,7 @@ namespace IndexExercise.Index.FileSystem
 			if (deletedEntry != null)
 			{
 				processDeletedEntry(deletedEntry);
-				_deletedEntriesQueue.TryRemove(deletedEntry);
+				_deletedEntriesQueue.Remove(deletedEntry);
 				return;
 			}
 
@@ -528,6 +529,9 @@ namespace IndexExercise.Index.FileSystem
 		private void deleteEntry(Entry<Metadata> entry)
 		{
 			_root.Remove(entry);
+
+			// concurrent_removal_from_created_entries_queue
+			// no need to process entry creation which was further deleted
 			_createdEntriesQueue.TryRemove(entry);
 
 			// after removing from _createdEntriesQueue
@@ -580,9 +584,9 @@ namespace IndexExercise.Index.FileSystem
 		public event EventHandler<FileEntry<Metadata>> FileDeleted;
 
 		private readonly RootEntry<Metadata> _root;
-		private readonly RandomAccessQueue<Change> _changeQueue = new RandomAccessQueue<Change>();
-		private readonly RandomAccessQueue<Entry<Metadata>> _createdEntriesQueue = new RandomAccessQueue<Entry<Metadata>>();
-		private readonly RandomAccessQueue<Entry<Metadata>> _deletedEntriesQueue = new RandomAccessQueue<Entry<Metadata>>();
+		private readonly FifoSet<Change> _changeQueue = new FifoSet<Change>();
+		private readonly FifoSet<Entry<Metadata>> _createdEntriesQueue = new FifoSet<Entry<Metadata>>();
+		private readonly FifoSet<Entry<Metadata>> _deletedEntriesQueue = new FifoSet<Entry<Metadata>>();
 
 		private readonly Watcher _watcher;
 		private readonly RootEntry<HashSet<WatchTarget>> _watchedLocations = new RootEntry<HashSet<WatchTarget>>(() => new HashSet<WatchTarget>());

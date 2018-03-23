@@ -25,6 +25,12 @@ namespace IndexExercise.Index.Test
 			IndexFacade.Start();
 		}
 
+		public FileSearchResult Search(string query)
+		{
+			var parsedQuery = IndexFacade.QueryBuilder.EngineSpecificQuery(query).Build();
+			return IndexFacade.Search(parsedQuery);
+		}
+
 		public override void Dispose()
 		{
 			IndexFacade.Dispose();
@@ -47,6 +53,6 @@ namespace IndexExercise.Index.Test
 		}
 
 
-		public IndexFacade IndexFacade { get; }
+		private IndexFacade IndexFacade { get; }
 	}
 }

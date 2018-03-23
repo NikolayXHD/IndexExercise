@@ -14,5 +14,14 @@ namespace IndexExercise.Index.Test
 		{
 			engine.Remove(contentId, CancellationToken.None);
 		}
+
+		public static ContentSearchResult Search(this IIndexEngine engine, string engineSpecificQuery)
+		{
+			var query = engine.QueryBuilder
+				.EngineSpecificQuery(engineSpecificQuery)
+				.Build();
+
+			return engine.Search(query);
+		}
 	}
 }

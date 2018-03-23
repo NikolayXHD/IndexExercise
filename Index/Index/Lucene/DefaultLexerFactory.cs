@@ -22,12 +22,12 @@ namespace IndexExercise.Index.Lucene
 			{
 				AdditionalWordChars = AdditionalWordChars,
 				MaxWordLength = MaxWordLength,
-				IsCaseSensitive = IsCaseSensitive
+				IsPreservingCase = IsPreservingCase
 			};
 		}
 
 		public HashSet<char> AdditionalWordChars { get; } = new HashSet<char>("_");
 		public int MaxWordLength { get; set; } = 256;
-		public bool IsCaseSensitive { get; set; }
+		public bool IsPreservingCase { get; set; }
 	}
 }

@@ -3,14 +3,16 @@
 namespace IndexExercise.Index.Collections
 {
 	/// <summary>
-	/// Map of <see cref="TKey"/>s to sets of unique <see cref="TValue"/>s
+	/// Groups added <see cref="TValue"/>s by <see cref="TKey"/>
+	/// to a sets of unique <see cref="TValue"/>s
 	/// </summary>
-	public class KeyToValuesSetMap<TKey, TValue>
+	internal class Grouping<TKey, TValue>
 	{
 		/// <summary>
-		/// Map of <see cref="TKey"/>s to sets of unique <see cref="TValue"/>s
+		/// Groups added <see cref="TValue"/>s by <see cref="TKey"/>
+		/// to a sets of unique <see cref="TValue"/>s
 		/// </summary>
-		public KeyToValuesSetMap()
+		public Grouping()
 		{
 		}
 

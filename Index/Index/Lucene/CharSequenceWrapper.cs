@@ -2,7 +2,7 @@
 
 namespace IndexExercise.Index.Lucene
 {
-	public struct CharSequenceWrapper : ICharSequence
+	internal struct CharSequenceWrapper : ICharSequence
 	{
 		public CharSequenceWrapper(IToken token)
 		{

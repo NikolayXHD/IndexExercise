@@ -1,24 +1,32 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace IndexExercise.Index
 {
 	public class FileSearchResult
 	{
-		public static FileSearchResult Error(string searchQueryError) => new FileSearchResult
+		public static FileSearchResult Error(IList<string> syntaxErrors)
 		{
-			SyntaxError = searchQueryError,
-			FileNames = Enumerable.Empty<string>()
-		};
+			if (syntaxErrors == null || syntaxErrors.Count == 0)
+				throw new ArgumentException($"{nameof(syntaxErrors)} must not be empty");
+
+			return new FileSearchResult
+			{
+				SyntaxErrors = syntaxErrors,
+				FileNames = Enumerable.Empty<string>()
+			};
+		}
 
 		public static FileSearchResult Success(IEnumerable<string> fileNames) => new FileSearchResult
 		{
-			FileNames = fileNames
+			FileNames = fileNames,
+			SyntaxErrors = new string[0]
 		};
-		
-		public string SyntaxError { get; private set; }
+
+		public IList<string> SyntaxErrors { get; private set; }
 		public IEnumerable<string> FileNames { get; private set; }
-		
-		public bool IsSyntaxError => SyntaxError != null;
+
+		public bool HasSyntaxErrors => SyntaxErrors.Count > 0;
 	}
 }

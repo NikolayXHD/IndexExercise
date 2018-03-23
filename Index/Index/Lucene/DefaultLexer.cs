@@ -95,7 +95,7 @@ namespace IndexExercise.Index.Lucene
 			if (_length == 0)
 				_start = _offset - 1;
 
-			if (!IsCaseSensitive)
+			if (!IsPreservingCase)
 				c = char.ToLower(c);
 
 			_wordBuffer[_length++] = c;
@@ -125,7 +125,7 @@ namespace IndexExercise.Index.Lucene
 			set => _wordBuffer = new char[value];
 		}
 
-		public bool IsCaseSensitive { get; set; }
+		public bool IsPreservingCase { get; set; }
 
 
 		private TextReader _input;

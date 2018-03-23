@@ -18,7 +18,7 @@ namespace IndexExercise.Index.Test
 			_util.StartIndexFacade();
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
+			Assert.That(_util.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
 		}
 
 		[Test]
@@ -31,14 +31,14 @@ namespace IndexExercise.Index.Test
 			_util.StartIndexFacade();
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("original").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
-			Assert.That(_util.IndexFacade.Search("updated").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
+			Assert.That(_util.Search("original").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
+			Assert.That(_util.Search("updated").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
 
 			File.WriteAllText(fileName, "updated content");
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("original").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
-			Assert.That(_util.IndexFacade.Search("updated").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
+			Assert.That(_util.Search("original").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
+			Assert.That(_util.Search("updated").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
 		}
 
 		[Test]
@@ -51,13 +51,13 @@ namespace IndexExercise.Index.Test
 			_util.StartIndexFacade();
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
+			Assert.That(_util.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
 
 			var renamedFileName = _util.GetFileName("renamed", parent: watchedDirectory);
 			_util.MoveFile(fileName, renamedFileName);
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(renamedFileName, 1)));
+			Assert.That(_util.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(renamedFileName, 1)));
 		}
 
 		[Test]
@@ -70,12 +70,12 @@ namespace IndexExercise.Index.Test
 			_util.StartIndexFacade();
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
+			Assert.That(_util.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Repeat(fileName, 1)));
 
 			_util.DeleteFile(fileName);
 			await _util.SmallDelay();
 
-			Assert.That(_util.IndexFacade.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
+			Assert.That(_util.Search("textual").FileNames, Is.EquivalentTo(Enumerable.Empty<string>()));
 		}
 
 

@@ -8,7 +8,7 @@ namespace IndexExercise.Index.Collections
 	/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
 	/// only support removing the first <see cref="TValue"/>.
 	/// </summary>
-	public class RandomAccessQueueMap<TKey, TValue>
+	internal class FifoMap<TKey, TValue>
 	{
 		/// <summary>
 		/// A <see cref="TKey"/> - <see cref="TValue"/> map that maintains <see cref="TKey"/>s ordered by
@@ -16,19 +16,19 @@ namespace IndexExercise.Index.Collections
 		/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
 		/// only support removing the first <see cref="TValue"/>.
 		/// </summary>
-		public RandomAccessQueueMap()
+		public FifoMap()
 		{
-			_elements = new SortedSet<TKey>(Comparer<TKey>.Create((el1, el2) =>
-				Comparer<long>.Default.Compare(_priorities[el1], _priorities[el2])));
+			_keys = new SortedSet<TKey>(Comparer<TKey>.Create((el1, el2) =>
+				Comparer<long>.Default.Compare(_order[el1], _order[el2])));
 		}
 
 		public void Enqueue(TKey key, TValue value)
 		{
 			lock (_sync)
 			{
-				_priorities.Add(key, _counter++);
-				_elements.Add(key);
-				_state.Add(key, value);
+				_order.Add(key, _counter++);
+				_keys.Add(key);
+				_map.Add(key, value);
 			}
 		}
 
@@ -36,15 +36,15 @@ namespace IndexExercise.Index.Collections
 		{
 			lock (_sync)
 			{
-				if (_elements.Count == 0)
+				if (_keys.Count == 0)
 					return (default(TKey), default(TValue));
 
-				var key = _elements.Min;
-				var value = _state[key];
+				var key = _keys.Min;
+				var value = _map[key];
 
-				_elements.Remove(key);
-				_priorities.Remove(key);
-				_state.Remove(key);
+				_keys.Remove(key);
+				_order.Remove(key);
+				_map.Remove(key);
 
 				return (key, value);
 			}
@@ -54,15 +54,15 @@ namespace IndexExercise.Index.Collections
 		{
 			lock (_sync)
 			{
-				_elements.Remove(key);
-				_priorities.Remove(key);
-				_state.Remove(key);
+				_keys.Remove(key);
+				_order.Remove(key);
+				_map.Remove(key);
 			}
 		}
 
-		private readonly SortedSet<TKey> _elements;
-		private readonly Dictionary<TKey, long> _priorities = new Dictionary<TKey, long>();
-		private readonly Dictionary<TKey, TValue> _state = new Dictionary<TKey, TValue>();
+		private readonly SortedSet<TKey> _keys;
+		private readonly Dictionary<TKey, long> _order = new Dictionary<TKey, long>();
+		private readonly Dictionary<TKey, TValue> _map = new Dictionary<TKey, TValue>();
 		private long _counter;
 
 		private readonly object _sync = new object();

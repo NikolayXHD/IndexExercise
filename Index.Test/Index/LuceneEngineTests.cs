@@ -10,30 +10,8 @@ using NUnit.Framework;
 namespace IndexExercise.Index.Test
 {
 	[TestFixture]
-	public class LuceneIndexEngineTests
+	public class LuceneEngineTests
 	{
-		[TestCase("phrase number one", "second sentence", "number", 1L)]
-		[TestCase("phrase number one", "second sentence", "second", 2L)]
-		[TestCase("phrase number one", "second sentence", "second OR phrase", 1L, 2L)]
-		public void Index_engine_finds_indexed_word(string content1, string content2, string searchQuery, params long[] expectedSearchResult)
-		{
-			const long contentId1 = 1;
-			const long contentId2 = 2;
-
-			_indexEngine.Update(contentId1, content1);
-			_indexEngine.Update(contentId2, content2);
-
-			var contentIds = _indexEngine.Search(searchQuery).ContentIds.ToArray();
-			Assert.That(contentIds, Is.EquivalentTo(expectedSearchResult));
-		}
-
-		[Test]
-		public void When_search_query_is_invalid_Then_search_result_is_syntax_error()
-		{
-			var searchResult = _indexEngine.Search("phrase (");
-			Assert.That(searchResult.IsSyntaxError, Is.True);
-		}
-
 		[Test]
 		public void When_content_is_removed_Then_search_result_becomes_empty()
 		{

@@ -15,7 +15,12 @@ namespace IndexExercise.Index
 		void Update(long contentId, TextReader input, CancellationToken cancellationToken);
 		void Remove(long contentId, CancellationToken cancellationToken);
 		
-		ContentSearchResult Search(string searchQuery);
+		/// <summary>
+		/// Searches indexed content based on <see cref="IQuery"/> created by <see cref="QueryBuilder"/>
+		/// </summary>
+		ContentSearchResult Search(IQuery query);
+
+		IQueryBuilder QueryBuilder { get; }
 
 		void Initialize();
 	}

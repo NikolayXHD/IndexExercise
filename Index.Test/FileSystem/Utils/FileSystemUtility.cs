@@ -86,8 +86,8 @@ namespace IndexExercise.Index.Test
 
 		public void CopyFile(string fileName, string destFileName)
 		{
-			File.Copy(fileName, destFileName, overwrite: true);
 			Log.Debug($"copy file {fileName} -> {destFileName}");
+			File.Copy(fileName, destFileName, overwrite: true);
 		}
 
 		public void ChangeFile(string fileName)
@@ -104,20 +104,22 @@ namespace IndexExercise.Index.Test
 
 		public void MoveFile(string fileName, string destFileName)
 		{
-			File.Move(fileName, destFileName);
 			Log.Debug($"move file {fileName} -> {destFileName}");
+			File.Move(fileName, destFileName);
 		}
 
 		public void MoveDirectory(string fromDirectoryName, string toDirectoryName)
 		{
-			Directory.Move(fromDirectoryName, toDirectoryName);
 			Log.Debug($"move directory {fromDirectoryName} -> {toDirectoryName}");
+			Directory.Move(fromDirectoryName, toDirectoryName);
 		}
 
 
 
 		public void DeleteDirectory(string directory)
 		{
+			Log.Debug($"delete directory {directory}");
+
 			try
 			{
 				Directory.Delete(directory, recursive: true);
@@ -125,14 +127,12 @@ namespace IndexExercise.Index.Test
 			catch (DirectoryNotFoundException)
 			{
 			}
-
-			Log.Debug($"delete directory {directory}");
 		}
 
 		public void DeleteFile(string fileName)
 		{
-			File.Delete(fileName);
 			Log.Debug($"delete file {fileName}");
+			File.Delete(fileName);
 		}
 
 
