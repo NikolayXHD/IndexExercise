@@ -111,8 +111,8 @@ namespace IndexExercise.Index.Test
 		}
 
 		[TestCase( /* filesCount */ 1)]
-		[TestCase( /* filesCount */ 10)]
-		[TestCase( /* filesCount */ 100)]
+		[TestCase( /* filesCount */ 5)]
+		[TestCase( /* filesCount */ 25)]
 		public async Task Files_created_in_currently_synchronized_directory_are_detected(int filesCount)
 		{
 			var preexisting = _util.CreateFiles(filesCount);
@@ -137,8 +137,8 @@ namespace IndexExercise.Index.Test
 		}
 
 		[TestCase( /* directoriesCount */ 1)]
-		[TestCase( /* directoriesCount */ 10)]
-		[TestCase( /* directoriesCount */ 100)]
+		[TestCase( /* directoriesCount */ 5)]
+		[TestCase( /* directoriesCount */ 25)]
 		public async Task Directories_created_in_currently_synchronized_directory_are_detected(int directoriesCount)
 		{
 			var preexisting = _util.CreateDirectories(directoriesCount);

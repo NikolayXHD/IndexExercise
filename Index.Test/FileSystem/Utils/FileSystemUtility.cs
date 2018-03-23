@@ -148,7 +148,7 @@ namespace IndexExercise.Index.Test
 
 		public virtual void Dispose()
 		{
-			DeleteDirectory(WorkingDirectory);
+			DeleteDirectory(TempDirectory);
 		}
 
 
