@@ -22,6 +22,12 @@ namespace IndexExercise.Index
 
 		IQueryBuilder QueryBuilder { get; }
 
+		/// <summary>
+		/// A directory where index is stored. 
+		/// Returns null if the index is not stored in file system.
+		/// </summary>
+		string IndexDirectory { get; }
+
 		void Initialize();
 	}
 }

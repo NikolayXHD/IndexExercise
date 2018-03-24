@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using IndexExercise.Index.FileSystem;
 using NUnit.Framework;
@@ -24,12 +25,17 @@ namespace IndexExercise.Index.Test
 			Log.Debug($"Watch {target}");
 		}
 
-		public Change AssertDetected(WatcherChangeTypes changeType, string path = null, string oldFullPath = null)
+		public Change AssertDetected(WatcherChangeTypes changeType, string path = null, string oldFullPath = null, bool allowIncorrectPath = false)
 		{
-			return AssertDetected(EntryType.Uncertain, changeType, path, oldFullPath);
+			return AssertDetected(EntryType.Uncertain, changeType, path, oldFullPath, allowIncorrectPath);
 		}
 
-		public Change AssertDetected(EntryType entryType, WatcherChangeTypes changeType, string path = null, string oldFullPath = null, bool allowIncorrectPath = false)
+		public Change AssertDetected(
+			EntryType entryType,
+			WatcherChangeTypes changeType,
+			string path = null,
+			string oldFullPath = null,
+			bool allowIncorrectPath = false)
 		{
 			var change = findChange(entryType, changeType, path, oldFullPath);
 
@@ -72,9 +78,12 @@ namespace IndexExercise.Index.Test
 				(oldFullPath == null || PathString.Comparer.Equals(oldFullPath, change.OldPath));
 		}
 
-		public void AssertNoMoreEvents()
+		public void AssertNoMoreEvents(WatcherChangeTypes types = WatcherChangeTypes.All)
 		{
-			if (_detectedChanges.Count > 0)
+			var matchingEvents = _detectedChanges.Where(_ => (_.ChangeType & types) != 0)
+				.ToList();
+
+			if (matchingEvents.Count > 0)
 			{
 				Assert.Fail(new StringBuilder()
 					.AppendLine("Expected no more events. Actual events:")

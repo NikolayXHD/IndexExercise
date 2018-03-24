@@ -168,7 +168,7 @@ namespace IndexExercise.Index.Test
 
 			// notice that path == originalFilePath returned by FileSystemWatcher is wrong!
 			// the actual changed file was located at path == renamedFilePath
-			var change = _util.AssertDetected(EntryType.Uncertain, WatcherChangeTypes.Changed, originalFilePath, allowIncorrectPath: true);
+			var change = _util.AssertDetected(WatcherChangeTypes.Changed, originalFilePath, allowIncorrectPath: true);
 			Assert.Throws<ApplicationException>(() => _util.Watcher.ThrowIfIncorrectPath(change));
 
 			_util.AssertNoMoreEvents();

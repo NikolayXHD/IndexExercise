@@ -8,9 +8,8 @@ namespace IndexExercise.Index.Test
 	{
 		public IndexFacadeUtility()
 		{
-			string indexDirectory = CreateDirectory("lucene-net-index", parent: TempDirectory);
+			string indexDirectory = CreateDirectory("lucene-index", parent: TempDirectory);
 			var indexEngine = new LuceneIndexEngine(indexDirectory);
-
 			IndexFacade = new IndexFacade(Mirror, new IndexingTaskProcessor(indexEngine), indexEngine);
 
 			IndexFacade.IdleDelay = TimeSpan.FromMilliseconds(10);

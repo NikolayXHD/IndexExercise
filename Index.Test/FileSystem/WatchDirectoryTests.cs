@@ -38,7 +38,7 @@ namespace IndexExercise.Index.Test
 		public async Task When_empty_file_created_Then_created_event_raised()
 		{
 			_util.Watch(EntryType.Directory);
-			
+
 			var fileName = _util.CreateFile(empty: true);
 			await _util.SmallDelay();
 
@@ -212,14 +212,14 @@ namespace IndexExercise.Index.Test
 
 			var directoryName = _util.CreateDirectory();
 			await _util.SmallDelay();
-			
+
 			_util.AssertDetected(WatcherChangeTypes.Created, directoryName);
 			_util.AssertNoMoreEvents();
 		}
 
-		[TestCase(/* filesCount */ 1)]
-		[TestCase(/* filesCount */ 10)]
-		[TestCase(/* filesCount */ 100)]
+		[TestCase( /* filesCount */ 1)]
+		[TestCase( /* filesCount */ 10)]
+		[TestCase( /* filesCount */ 100)]
 		public async Task When_directory_deleted_Then_event_raised_for_each_file(int filesCount)
 		{
 			string directoryName = _util.CreateDirectory();
@@ -233,12 +233,10 @@ namespace IndexExercise.Index.Test
 			_util.AssertDetected(WatcherChangeTypes.Deleted, directoryName);
 
 			for (int i = 0; i < fileNames.Count; i++)
-			{
-				_util.AssertDetected(WatcherChangeTypes.Changed, directoryName);
 				_util.AssertDetected(WatcherChangeTypes.Deleted, fileNames[i]);
-			}
 
 			// additional (WatcherChangeTypes.Changed, directoryName) was observed on different OS version
+			_util.AssertNoMoreEvents(WatcherChangeTypes.All & ~WatcherChangeTypes.Changed);
 		}
 
 		[Test]
@@ -258,9 +256,9 @@ namespace IndexExercise.Index.Test
 			_util.AssertNoMoreEvents();
 		}
 
-		[TestCase(/* filesCount */ 1)]
-		[TestCase(/* filesCount */ 10)]
-		[TestCase(/* filesCount */ 100)]
+		[TestCase( /* filesCount */ 1)]
+		[TestCase( /* filesCount */ 10)]
+		[TestCase( /* filesCount */ 100)]
 		public async Task When_directory_renamed_Then_directory_renamed_event_raised(int filesCount)
 		{
 			string fromDirectoryName = _util.CreateDirectory();
@@ -268,13 +266,14 @@ namespace IndexExercise.Index.Test
 			string directoryName = _util.GetFileName();
 
 			_util.Watch(EntryType.Directory);
-			
+
 			_util.MoveDirectory(fromDirectoryName, directoryName);
 			await _util.SmallDelay();
 
 			_util.AssertDetected(WatcherChangeTypes.Renamed, directoryName, fromDirectoryName);
 
 			// additional event was observed on different OS version
+			_util.AssertNoMoreEvents(WatcherChangeTypes.All & ~WatcherChangeTypes.Changed);
 		}
 
 
@@ -316,7 +315,7 @@ namespace IndexExercise.Index.Test
 		public async Task When_observed_directory_deleted_Then_error_event_raised()
 		{
 			_util.Watch(EntryType.Directory);
-			
+
 			_util.DeleteDirectory(_util.WorkingDirectory);
 			await _util.SmallDelay();
 
@@ -355,7 +354,7 @@ namespace IndexExercise.Index.Test
 		public async Task When_observed_directory_is_recreated_Then_no_events_raised()
 		{
 			_util.Watch(EntryType.Directory);
-			
+
 			_util.DeleteDirectory(_util.WorkingDirectory);
 			await _util.SmallDelay();
 

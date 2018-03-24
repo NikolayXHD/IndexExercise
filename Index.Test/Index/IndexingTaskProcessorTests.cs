@@ -148,7 +148,7 @@ namespace IndexExercise.Index.Test
 		public void Setup()
 		{
 			_util = new WatchUtility();
-			_indexEngine = new LuceneIndexEngine(Path.Combine(_util.WorkingDirectory, "lucene-net-index"));
+			_indexEngine = new LuceneIndexEngine(Path.Combine(_util.WorkingDirectory, "lucene-index"));
 			_indexEngine.Initialize();
 			_taskProcessor = new IndexingTaskProcessor(_indexEngine);
 		}

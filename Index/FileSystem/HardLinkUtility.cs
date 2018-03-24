@@ -5,12 +5,12 @@ namespace IndexExercise.Index.FileSystem
 {
 	public class HardLinkUtility
 	{
-		public static bool TryCreateHardLink(string fileName, string existingFileName)
+		public static bool TryCreateHardLink(string hardLinkName, string existingFileName)
 		{
-			return CreateHardLink(fileName, existingFileName, IntPtr.Zero);
+			return CreateHardLink(hardLinkName, existingFileName, IntPtr.Zero);
 		}
 
-		[DllImport("Kernel32.dll", CharSet = CharSet.Unicode )]
+		[DllImport("Kernel32.dll", CharSet = CharSet.Unicode)]
 		private static extern bool CreateHardLink(
 			string lpFileName,
 			string lpExistingFileName,

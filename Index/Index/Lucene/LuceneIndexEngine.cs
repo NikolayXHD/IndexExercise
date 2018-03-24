@@ -3,7 +3,6 @@ using System.IO;
 using System.Threading;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
-using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
@@ -16,7 +15,7 @@ namespace IndexExercise.Index.Lucene
 			string indexDirectory = null,
 			ILexerFactory lexerFactory = null)
 		{
-			_indexDirectory = indexDirectory ?? "lucene-index";
+			IndexDirectory = indexDirectory ?? "lucene-index";
 
 			lexerFactory = lexerFactory ?? new DefaultLexerFactory();
 			_writerLexer = lexerFactory.CreateLexer();
@@ -27,9 +26,9 @@ namespace IndexExercise.Index.Lucene
 
 		public void Initialize()
 		{
-			System.IO.Directory.CreateDirectory(_indexDirectory);
+			System.IO.Directory.CreateDirectory(IndexDirectory);
 
-			_index = FSDirectory.Open(_indexDirectory);
+			_index = FSDirectory.Open(IndexDirectory);
 
 			var writerConfig = new IndexWriterConfig(LuceneVersion.LUCENE_48, _writerAnalyzer);
 			_indexWriter = new IndexWriter(_index, writerConfig);
@@ -125,7 +124,7 @@ namespace IndexExercise.Index.Lucene
 		private readonly ILexer _writerLexer;
 		private readonly GenericAnalyzer _writerAnalyzer;
 
-		private readonly string _indexDirectory;
+		public string IndexDirectory { get; }
 
 		private readonly object _syncWrite = new object();
 

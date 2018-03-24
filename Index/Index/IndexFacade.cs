@@ -19,17 +19,20 @@ namespace IndexExercise.Index
 		/// <summary>
 		/// Maintains an up-to-date index of content of specified files and directories
 		/// </summary>
-		/// <param name="indexEngine">Provides indexing functionality</param>
+		/// <param name="indexDirectory">A directory to store index files</param>
+		/// <param name="lexerFactory">Creates instances of <see cref="ILexer"/> to parse text into a 
+		/// sequence of <see cref="IToken"/></param>
 		/// <param name="filesFilter">A filtering callback to determine wich files need to be indexed.
 		/// By default all files are indexed.</param>
 		/// <param name="encodingDetector">Provides encoding detection functionality. By default 
 		/// <see cref="Encoding.UTF8"/>is assumed.</param>
 		public static IndexFacade Create(
-			IIndexEngine indexEngine = null,
+			string indexDirectory = null,
+			ILexerFactory lexerFactory = null,
 			Mirror.FilesFilter filesFilter = null,
 			Func<FileInfo, Encoding> encodingDetector = null)
 		{
-			indexEngine = indexEngine ?? new LuceneIndexEngine();
+			var indexEngine = new LuceneIndexEngine(indexDirectory, lexerFactory);
 			var mirror = new Mirror(new Watcher(), new SequentialId(), filesFilter);
 			var taskProcessor = new IndexingTaskProcessor(indexEngine, encodingDetector);
 
@@ -39,14 +42,11 @@ namespace IndexExercise.Index
 		/// <summary>
 		/// Maintains an up-to-date index of content of specified files and directories
 		/// </summary>
-		public IndexFacade(
-			Mirror mirror,
-			IndexingTaskProcessor indexingTaskProcessor,
-			IIndexEngine indexEngine = null)
+		public IndexFacade(Mirror mirror, IndexingTaskProcessor indexingTaskProcessor, IIndexEngine indexEngine)
 		{
 			_mirror = mirror;
 			_indexingTaskProcessor = indexingTaskProcessor;
-			_indexEngine = indexEngine ?? new LuceneIndexEngine();
+			_indexEngine = indexEngine;
 
 			_mirror.FileCreated += fileCreatead;
 			_mirror.FileDeleted += fileDeleted;
@@ -122,13 +122,36 @@ namespace IndexExercise.Index
 		{
 			string path = fileEntry.GetPath();
 
-			if (path == null || !tryGetFileLength(path, out long length))
+			if (path == null)
+				return;
+
+			if (isIndexFileOrDirectory(path))
+				return;
+
+			if (!tryGetFileLength(path, out long length))
 				return;
 
 			fileEntry.Data.Length = length;
 
 			_filesByContentId.Add(fileEntry.Data.ContentId, fileEntry);
 			_addingToIndexQueue.Add(fileEntry, fileEntry.Data.Length);
+		}
+
+		private bool isIndexFileOrDirectory(string path)
+		{
+			string indexDirectory = _indexEngine.IndexDirectory;
+
+			if (indexDirectory == null)
+				return false;
+
+			if (!path.StartsWith(indexDirectory, PathString.Comparison))
+				return false;
+
+			if (path.Length == indexDirectory.Length)
+				return true;
+
+			char separator = path[indexDirectory.Length + 1];
+			return separator == Path.DirectorySeparatorChar || separator == Path.AltDirectorySeparatorChar;
 		}
 
 		private void remove(FileEntry<Metadata> file)

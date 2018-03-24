@@ -50,20 +50,17 @@ namespace IndexExercise.Index.FileSystem
 				return;
 			}
 
-			var createdEntry = _createdEntriesQueue.TryPeek();
+			var createdEntry = _createdEntriesQueue.TryDequeue();
 			if (createdEntry != null)
 			{
 				processCreatedEntry(createdEntry);
-				// concurrent_removal_from_created_entries_queue
-				_createdEntriesQueue.TryRemove(createdEntry);
 				return;
 			}
 
-			var deletedEntry = _deletedEntriesQueue.TryPeek();
+			var deletedEntry = _deletedEntriesQueue.TryDequeue();
 			if (deletedEntry != null)
 			{
 				processDeletedEntry(deletedEntry);
-				_deletedEntriesQueue.Remove(deletedEntry);
 				return;
 			}
 
@@ -207,7 +204,7 @@ namespace IndexExercise.Index.FileSystem
 					break;
 
 				case DirectoryEntry<Metadata> directory:
-					unregisterDirectoryFilesContent(directory);
+					removeDirectory(directory);
 					break;
 
 				case UnclassifiedEntry<Metadata> _:
@@ -356,23 +353,22 @@ namespace IndexExercise.Index.FileSystem
 		private void scanDirectory(DirectoryEntry<Metadata> directory)
 		{
 			var path = directory.GetPath();
-			var directoryInfo = new DirectoryInfo(path);
-
-			if (!directoryInfo.Exists)
-				return;
-
+			
 			try
 			{
-				foreach (var info in directoryInfo.EnumerateFileSystemInfos("*", SearchOption.TopDirectoryOnly))
-				{
-					if (!isAdded(directory))
-						return;
+				var directoryInfo = new DirectoryInfo(path);
 
-					var entryType = getEntryType(info);
+				if (!directoryInfo.Exists)
+					return;
 
-					if (entryType.HasValue)
-						entryFound(new Find(entryType.Value, info.FullName));
-				}
+				// if other process removes the scanned directory, to this process the directory
+				// remains existing and files and subdirectories enumeration continues normally
+
+				foreach (var info in directoryInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+					entryFound(new Find(EntryType.File, info.FullName));
+
+				foreach (var info in directoryInfo.EnumerateDirectories("*", SearchOption.TopDirectoryOnly))
+					entryFound(new Find(EntryType.Directory, info.FullName));
 			}
 			catch (DirectoryNotFoundException)
 			{
@@ -383,31 +379,11 @@ namespace IndexExercise.Index.FileSystem
 			}
 		}
 
-		private bool isAdded(Entry<Metadata> entry)
-		{
-			lock (_createdEntriesQueue.Sync)
-			lock (_deletedEntriesQueue.Sync)
-			{
-				var branch = entry.GetSelfAndAncestors();
-
-				bool existAdded = false;
-
-				foreach (var e in branch)
-				{
-					if (_deletedEntriesQueue.Contains(e))
-						return false;
-
-					existAdded |= _createdEntriesQueue.Contains(e);
-				}
-
-				return existAdded;
-			}
-		}
-
-		private void unregisterDirectoryFilesContent(DirectoryEntry<Metadata> directory)
+		private void removeDirectory(DirectoryEntry<Metadata> directory)
 		{
 			var current = directory;
 
+			// recursive deletion of directory content written as loop
 			while (true)
 			{
 				while (current.Directories.Count > 0)
@@ -530,7 +506,6 @@ namespace IndexExercise.Index.FileSystem
 		{
 			_root.Remove(entry);
 
-			// concurrent_removal_from_created_entries_queue
 			// no need to process entry creation which was further deleted
 			_createdEntriesQueue.TryRemove(entry);
 
@@ -558,19 +533,6 @@ namespace IndexExercise.Index.FileSystem
 
 			return null;
 		}
-
-		private static EntryType? getEntryType(FileSystemInfo info)
-		{
-			if (info is DirectoryInfo)
-				return EntryType.Directory;
-
-			if (info is FileInfo)
-				return EntryType.File;
-
-			return null;
-		}
-
-
 
 		public event EventHandler<Change> ProcessingChange;
 		public event EventHandler<Entry<Metadata>> EnqueuedCreatedEntry;
