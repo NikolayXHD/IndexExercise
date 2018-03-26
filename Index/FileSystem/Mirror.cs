@@ -511,10 +511,19 @@ namespace IndexExercise.Index.FileSystem
 				return;
 			}
 
+			// remove possibly existing entry at renaming target path
 			processDeletedEntry(path);
 
-			_root.Move(existingEntry, path);
-			_movedEntriesQueue.TryEnqueue(existingEntry);
+			if (type != existingEntry.Type && type != EntryType.Uncertain)
+			{
+				processDeletedEntry(oldPath);
+				processChangedOrCreatedEntry(type, path);
+			}
+			else
+			{
+				_root.Move(existingEntry, path);
+				_movedEntriesQueue.TryEnqueue(existingEntry);
+			}
 		}
 
 		private void createEntry(EntryType type, string path)
