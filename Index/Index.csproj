@@ -57,14 +57,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\ListExtensions.cs" />
+    <Compile Include="Collections\Extensions.cs" />
+    <Compile Include="Collections\Unit.cs" />
     <Compile Include="FileSystem\HardLinkUtility.cs" />
     <Compile Include="FileSystem\AlternativeDataStream.cs" />
     <Compile Include="FileSystem\IndexingMetadataUtility.cs" />
     <Compile Include="FileSystem\Model\EntryAccessError.cs" />
     <Compile Include="FileSystem\Model\Find.cs" />
     <Compile Include="FileSystem\Model\Metadata.cs" />
-    <Compile Include="Collections\OrderedSet.cs" />
+    <Compile Include="Collections\OrderedMap.cs" />
     <Compile Include="Collections\FifoMap.cs" />
     <Compile Include="FileSystem\PathString.cs" />
     <Compile Include="FileSystem\Model\SequentialId.cs" />
@@ -84,9 +85,11 @@
     <Compile Include="FileSystem\Model\WatchTargetState.cs" />
     <Compile Include="Index\IndexFacade.cs" />
     <Compile Include="FileSystem\Watcher.cs" />
-    <Compile Include="Collections\Grouping.cs" />
+    <Compile Include="Collections\SetGrouping.cs" />
     <Compile Include="Index\Interface\IQuery.cs" />
     <Compile Include="Index\Interface\IQueryBuilder.cs" />
+    <Compile Include="Index\QueryExtension.cs" />
+    <Compile Include="Index\QueryBuilderExtension.cs" />
     <Compile Include="Index\Model\BoolOperator.cs" />
     <Compile Include="Index\Lucene\LuceneQueryBuilder.cs" />
     <Compile Include="Index\Lucene\QueryWrapper.cs" />

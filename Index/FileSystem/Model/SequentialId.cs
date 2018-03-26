@@ -10,7 +10,7 @@ namespace IndexExercise.Index.FileSystem
 			return result;
 		}
 
-		public long None => -1L;
+		public static long None => -1L;
 		private long _contentIdCounter = -1L;
 	}
 }

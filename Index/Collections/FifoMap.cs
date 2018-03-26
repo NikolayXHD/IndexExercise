@@ -5,7 +5,7 @@ namespace IndexExercise.Index.Collections
 	/// <summary>
 	/// A <see cref="TKey"/> - <see cref="TValue"/> map that maintains <see cref="TKey"/>s ordered by
 	/// the order in which they were added i.e. the keys are ordered in a queue. In difference from
-	/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
+	/// a regular queue <see cref="TryRemove"/> of arbitrary element is supported while the queue would
 	/// only support removing the first <see cref="TValue"/>.
 	/// </summary>
 	internal class FifoMap<TKey, TValue>
@@ -13,7 +13,7 @@ namespace IndexExercise.Index.Collections
 		/// <summary>
 		/// A <see cref="TKey"/> - <see cref="TValue"/> map that maintains <see cref="TKey"/>s ordered by
 		/// the order in which they were added i.e. the keys are ordered in a queue. In difference from
-		/// a regular queue <see cref="Remove"/> of arbitrary element is supported while the queue would
+		/// a regular queue <see cref="TryRemove"/> of arbitrary element is supported while the queue would
 		/// only support removing the first <see cref="TValue"/>.
 		/// </summary>
 		public FifoMap()
@@ -22,17 +22,24 @@ namespace IndexExercise.Index.Collections
 				Comparer<long>.Default.Compare(_order[el1], _order[el2])));
 		}
 
-		public void Enqueue(TKey key, TValue value)
+		/// <summary>
+		/// Adds an element to a queue
+		/// </summary>
+		/// <exception cref="ArgumentNullException">If <see cref="key"/> is null</exception>
+		public void TryEnqueue(TKey key, TValue value)
 		{
 			lock (_sync)
 			{
+				if (_map.ContainsKey(key))
+					return;
+
 				_order.Add(key, _counter++);
 				_keys.Add(key);
 				_map.Add(key, value);
 			}
 		}
 
-		public (TKey key, TValue value) TryDequeue()
+		public (TKey Key, TValue Value) TryPeek()
 		{
 			lock (_sync)
 			{
@@ -41,23 +48,29 @@ namespace IndexExercise.Index.Collections
 
 				var key = _keys.Min;
 				var value = _map[key];
-
-				_keys.Remove(key);
-				_order.Remove(key);
-				_map.Remove(key);
-
 				return (key, value);
 			}
 		}
 
-		public void Remove(TKey key)
+		public bool TryRemove(TKey key)
 		{
 			lock (_sync)
 			{
-				_keys.Remove(key);
-				_order.Remove(key);
-				_map.Remove(key);
+				if (!_map.ContainsKey(key))
+					return false;
+
+				remove(key);
+				return true;
 			}
+		}
+
+
+
+		private void remove(TKey key)
+		{
+			_keys.Remove(key);
+			_order.Remove(key);
+			_map.Remove(key);
 		}
 
 		private readonly SortedSet<TKey> _keys;

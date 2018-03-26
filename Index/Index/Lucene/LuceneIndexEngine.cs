@@ -6,6 +6,7 @@ using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Lucene.Net.Util;
+using Directory = System.IO.Directory;
 
 namespace IndexExercise.Index.Lucene
 {
@@ -26,7 +27,7 @@ namespace IndexExercise.Index.Lucene
 
 		public void Initialize()
 		{
-			System.IO.Directory.CreateDirectory(IndexDirectory);
+			Directory.CreateDirectory(IndexDirectory);
 
 			_index = FSDirectory.Open(IndexDirectory);
 
@@ -71,11 +72,10 @@ namespace IndexExercise.Index.Lucene
 
 		public ContentSearchResult Search(IQuery query)
 		{
+			if (query.HasErrors())
+				return ContentSearchResult.Error(query.Errors);
+
 			var queryWrapper = (QueryWrapper) query;
-
-			if (queryWrapper.HasSyntaxErrors)
-				return ContentSearchResult.Error(queryWrapper.SyntaxErrors);
-
 			return ContentSearchResult.Success(findContentIds(queryWrapper.LuceneQuery));
 		}
 

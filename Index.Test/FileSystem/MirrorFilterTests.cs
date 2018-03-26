@@ -11,7 +11,7 @@ namespace IndexExercise.Index.Test
 		public void Setup()
 		{
 			var ignoredFilesRegex = new Regex(@".ignored($|\\)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-			_util = new MirrorUtility(filesFilter: fullFileName => !ignoredFilesRegex.IsMatch(fullFileName));
+			_util = new MirrorUtility(fileNameFilter: fullFileName => !ignoredFilesRegex.IsMatch(fullFileName));
 		}
 
 		[TearDown]

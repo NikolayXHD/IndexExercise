@@ -1,7 +1,6 @@
 ﻿using IndexExercise.Index.Collections;
 using NUnit.Framework;
 
-
 namespace IndexExercise.Index.Test
 {
 	[TestFixture]

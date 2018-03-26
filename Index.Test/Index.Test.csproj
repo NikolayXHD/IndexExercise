@@ -57,7 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="nlog.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
   </ItemGroup>
@@ -77,10 +77,10 @@
     <Compile Include="FileSystem\Utils\WatchUtilityBase.cs" />
     <Compile Include="Index\DefaultLexerTests.cs" />
     <Compile Include="Index\IndexEngineExtension.cs" />
-    <Compile Include="Index\IndexFacadeExtension.cs" />
     <Compile Include="Index\IndexFacadeTests.cs" />
     <Compile Include="Index\IndexingTaskProcessorTests.cs" />
     <Compile Include="Index\LexerFactoryExtension.cs" />
+    <Compile Include="ListExtension.cs" />
     <Compile Include="Index\LuceneEngineQueriesTests.cs" />
     <Compile Include="Index\LuceneEngineTests.cs" />
   </ItemGroup>

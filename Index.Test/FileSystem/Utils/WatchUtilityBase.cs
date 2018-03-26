@@ -7,8 +7,8 @@ namespace IndexExercise.Index.Test
 		protected WatchUtilityBase()
 		{
 			Watcher = new Watcher();
-			Watcher.ChangeDetected += (sender, change) => Log.Debug(change.ToString);
-			Watcher.Error += (sender, args) => Log.Debug(args.Exception, $"Failed watching {args.Target}");
+			Watcher.ChangeDetected += (sender, change) => Log.Debug($"watcher {change}");
+			Watcher.Error += (sender, args) => Log.Debug(args.Exception, $"watcher failed watching {args.Target}");
 		}
 
 		public override void Dispose()

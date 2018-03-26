@@ -17,6 +17,8 @@ namespace IndexExercise.Index
 
 		public void ProcessTask(IndexingTask task)
 		{
+			task.BeginProcessing();
+
 			switch (task.Action)
 			{
 				case IndexingAction.AddContent:
@@ -24,94 +26,204 @@ namespace IndexExercise.Index
 					break;
 
 				case IndexingAction.RemoveContent:
-					_indexEngine.Remove(task.ContentId, task.CancellationToken);
+					_indexEngine.Remove(task.FileEntry.Data.ContentId, task.CancellationToken);
 					break;
 
 				default:
 					throw new NotSupportedException($"{nameof(IndexingAction)} {task.Action} is not supported");
 			}
+
+			task.EndProcessing();
+		}
+
+		public void SetFilePropertiesOf(IndexingTask task)
+		{
+			task.Path = task.FileEntry.GetPath();
+
+			// file was deleted
+			if (task.Path == null)
+			{
+				handleFailedAccess(task, exception: null);
+				return;
+			}
+
+			if (isIndexFileOrDirectory(task.Path))
+				return;
+
+			try
+			{
+				var fileInfo = new FileInfo(task.Path);
+				task.FileEntry.Data.Length = fileInfo.Length;
+			}
+			catch (Exception ex) when (ex is SecurityException || ex is UnauthorizedAccessException || ex is FileNotFoundException)
+			{
+				// FileNotFoundException may be ok if the file was renamed / moved after GetPath call
+				task.FileEntry.Data.Length = long.MaxValue;
+				handleFailedAccess(task, ex);
+			}
+		}
+
+		private bool isIndexFileOrDirectory(string path)
+		{
+			string indexDirectory = _indexEngine.IndexDirectory;
+
+			if (indexDirectory == null)
+				return false;
+
+			if (!path.StartsWith(indexDirectory, PathString.Comparison))
+				return false;
+
+			if (path.Length == indexDirectory.Length)
+				return true;
+
+			char separator = path[indexDirectory.Length];
+			return separator == Path.DirectorySeparatorChar || separator == Path.AltDirectorySeparatorChar;
 		}
 
 		private void updateFile(IndexingTask task)
 		{
-			if (task.Length >= MaxFileLength)
-				_indexEngine.Remove(task.ContentId, task.CancellationToken);
+			SetFilePropertiesOf(task);
 
-			var (stream, encoding) = openFile(task, task.Path);
-
-			if (stream == null)
+			if (task.FileAccessException != null)
+				return;
+			
+			if (task.Path == null)
 				return;
 
-			FileOpened?.Invoke(this, task);
+			if (task.FileEntry.Data.Length >= MaxFileLength)
+			{
+				_indexEngine.Remove(task.FileEntry.Data.ContentId, task.CancellationToken);
+				return;
+			}
 
-			using (stream)
-			using (var input = new StreamReader(stream, encoding))
-				_indexEngine.Update(task.ContentId, input, task.CancellationToken);
+			var textReader = openFile(task);
+
+			if (textReader == null)
+				return;
+
+			using (textReader)
+			{
+				FileOpened?.Invoke(this, task);
+				_indexEngine.Update(task.FileEntry.Data.ContentId, textReader, task.CancellationToken);
+			}
 		}
 
-		private (Stream stream, Encoding encoding) openFile(IndexingTask task, string path)
+		private StreamReader openFile(IndexingTask task)
 		{
-			string hardlinkPath = tryCreateHardlink(path);
+			var encoding = getEncoding(task);
 
-			Encoding encoding;
-			if (_encodingDetector != null)
-				encoding = _encodingDetector(new FileInfo(path));
-			else
-				encoding = Encoding.UTF8;
+			string hardlinkPath = task.HardlinkPath ?? tryCreateHardlink(task.Path);
 
-			string pathToOpen = path;
-			var fileOptions = FileOptions.SequentialScan;
+			FileStream stream;
 
 			if (hardlinkPath != null)
 			{
-				pathToOpen = hardlinkPath;
-				fileOptions |= FileOptions.DeleteOnClose;
+				task.HardlinkPath = hardlinkPath;
+				stream = openFileThroughHardLink(task);
+			}
+			else
+			{
+				stream = openFileDirectly(task);
 			}
 
+			if (stream == null)
+				return null;
+
+			return new StreamReader(stream, encoding);
+		}
+
+		private Encoding getEncoding(IndexingTask task)
+		{
+			Encoding encoding;
+			if (_encodingDetector != null)
+				encoding = _encodingDetector(new FileInfo(task.Path));
+			else
+				encoding = Encoding.UTF8;
+			return encoding;
+		}
+
+		private FileStream openFileDirectly(IndexingTask task)
+		{
 			try
 			{
 				var stream = new FileStream(
-					pathToOpen,
+					task.Path,
 					FileMode.Open,
 					FileAccess.Read,
 					FileShare.Read | FileShare.Write | FileShare.Delete,
 					BufferSize,
-					fileOptions);
+					FileOptions.SequentialScan);
 
-				return (stream, encoding);
+				return stream;
 			}
-			catch (Exception ex)
+			catch (IOException ex)
 			{
-				if (hardlinkPath != null)
-					File.Delete(hardlinkPath);
-
-				switch (ex)
-				{
-					case DirectoryNotFoundException _:
-					case FileNotFoundException _:
-						return (null, null);
-
-					case SecurityException _:
-					case UnauthorizedAccessException _:
-					case IOException _:
-						if (task.Attempts < MaxReadAttempts)
-							task.HasToBeRepeated = true;
-						FileAccessError?.Invoke(this, new EntryAccessError(EntryType.File, path, ex));
-						return (null, null);
-
-					default:
-						throw;
-				}
+				handleFailedAccess(task, ex);
 			}
+			catch (SecurityException ex)
+			{
+				handleFailedAccess(task, ex);
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				handleFailedAccess(task, ex);
+			}
+
+			return null;
+		}
+
+		private FileStream openFileThroughHardLink(IndexingTask task)
+		{
+			try
+			{
+				var stream = new FileStream(
+					task.HardlinkPath,
+					FileMode.Open,
+					FileAccess.Read,
+					FileShare.Read | FileShare.Write | FileShare.Delete,
+					BufferSize,
+					FileOptions.SequentialScan | FileOptions.DeleteOnClose);
+
+				return stream;
+			}
+			catch (IOException ex) when (!(ex is FileNotFoundException) && !(ex is DirectoryNotFoundException))
+			{
+				handleFailedAccess(task, ex);
+			}
+
+			return null;
+		}
+
+		private void handleFailedAccess(IndexingTask task, Exception exception)
+		{
+			task.HasToBeRepeated = task.Attempts < MaxReadAttempts;
+			task.FileAccessException = exception;
+
+			if (exception != null)
+				FileAccessError?.Invoke(this, new EntryAccessError(EntryType.File, task.Path, exception));
 		}
 
 		/// <summary>
-		/// <see cref="FileShare.Delete"/> does not actually let other processes delete the opened file,
-		/// see https://stackoverflow.com/a/19876245/6656775.
-		///
-		/// To workaraund this we access the file through a temporarily created hardlink.
-		/// Now other processes can delete the file. When it happens we can detect it e.g. by using <see cref="FileSystemWatcher"/>
-		/// in order to gracefully handle currently inexed file deletion.
+		/// Create a hardlink to a specified file.
+		/// <para>
+		/// Reading a file through a hardlink instead of it's original path enables other processes to 
+		/// delete it and create a new one with the same name without getting a
+		/// <see cref="UnauthorizedAccessException"/> on creation step.
+		/// </para>
+		/// <para>
+		/// See https://stackoverflow.com/a/19876245/6656775.
+		/// </para>
+		/// <para>
+		/// Despite the trick of using hardlink other processes still have a limitation on access to 
+		/// the scanned file. If another process tries to open a <see cref="FileStream"/> withOUT 
+		/// <see cref="FileShare.Read"/> it will get an <see cref="IOException"/>
+		/// </para>
+		/// <para>
+		/// "The process cannot access the file ... because it is being used by another process"
+		/// </para>
+		/// <para>
+		/// because we did open the file with <see cref="FileShare.Read"/>
+		/// </para>
 		/// </summary>
 		private string tryCreateHardlink(string filePath)
 		{
@@ -143,7 +255,7 @@ namespace IndexExercise.Index
 
 			if (!HardLinkUtility.TryCreateHardLink(hardLinkPath, existingFileName: filePath))
 				return null;
-			
+
 			return hardLinkPath;
 		}
 

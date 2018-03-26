@@ -7,7 +7,7 @@ namespace IndexExercise.Index
 	/// </summary>
 	public interface IQuery
 	{
-		IList<string> SyntaxErrors { get; }
+		IList<string> Errors { get; }
 		IList<string> Warnings { get; }
 	}
 }

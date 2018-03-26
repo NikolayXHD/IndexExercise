@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.Collections;
@@ -22,42 +21,46 @@ namespace IndexExercise.Index
 		/// <param name="indexDirectory">A directory to store index files</param>
 		/// <param name="lexerFactory">Creates instances of <see cref="ILexer"/> to parse text into a 
 		/// sequence of <see cref="IToken"/></param>
-		/// <param name="filesFilter">A filtering callback to determine wich files need to be indexed.
+		/// <param name="fileNameFilter">A filtering callback to determine wich files need to be indexed.
 		/// By default all files are indexed.</param>
 		/// <param name="encodingDetector">Provides encoding detection functionality. By default 
 		/// <see cref="Encoding.UTF8"/>is assumed.</param>
 		public static IndexFacade Create(
 			string indexDirectory = null,
 			ILexerFactory lexerFactory = null,
-			Mirror.FilesFilter filesFilter = null,
+			Mirror.FileNameFilter fileNameFilter = null,
 			Func<FileInfo, Encoding> encodingDetector = null)
 		{
 			var indexEngine = new LuceneIndexEngine(indexDirectory, lexerFactory);
-			var mirror = new Mirror(new Watcher(), new SequentialId(), filesFilter);
+			var watcher = new Watcher();
+			var mirror = new Mirror(watcher, new SequentialId(), fileNameFilter);
 			var taskProcessor = new IndexingTaskProcessor(indexEngine, encodingDetector);
 
-			return new IndexFacade(mirror, taskProcessor, indexEngine);
+			return new IndexFacade(watcher, mirror, taskProcessor, indexEngine);
 		}
 
 		/// <summary>
 		/// Maintains an up-to-date index of content of specified files and directories
 		/// </summary>
-		public IndexFacade(Mirror mirror, IndexingTaskProcessor indexingTaskProcessor, IIndexEngine indexEngine)
+		public IndexFacade(Watcher watcher, Mirror mirror, IndexingTaskProcessor indexingTaskProcessor, IIndexEngine indexEngine)
 		{
+			_watcher = watcher;
 			_mirror = mirror;
 			_indexingTaskProcessor = indexingTaskProcessor;
 			_indexEngine = indexEngine;
 
 			_mirror.FileCreated += fileCreatead;
 			_mirror.FileDeleted += fileDeleted;
+			_mirror.FileMoved += fileMoved;
+
 			_mirror.EntryAccessError += fileAccessError;
 			_indexingTaskProcessor.FileAccessError += fileAccessError;
 		}
 
-		public override Task Start()
+		public override Task RunAsync()
 		{
 			_indexEngine.Initialize();
-			return Task.WhenAll(_mirror.Start(), base.Start());
+			return Task.WhenAll(_mirror.RunAsync(), base.RunAsync());
 		}
 
 		public override void Dispose()
@@ -65,12 +68,20 @@ namespace IndexExercise.Index
 			base.Dispose();
 
 			_mirror.Dispose();
+			_watcher.Dispose();
 			_indexEngine.Dispose();
 			_indexingTaskProcessor.Dispose();
 		}
 
 		protected override async Task BackgroundLoopIteration()
 		{
+			var indexingTask = _delayedTasksQueue.TryPeek().Value;
+			if (indexingTask != null)
+			{
+				advanceDelayedTask(indexingTask);
+				return;
+			}
+
 			var fileToRemove = _removingFromIndexQueue.TryDequeue();
 			if (fileToRemove != null)
 			{
@@ -78,17 +89,10 @@ namespace IndexExercise.Index
 				return;
 			}
 
-			var fileToAdd = _addingToIndexQueue.TryRemoveMin();
-			if (fileToAdd != null)
+			indexingTask = _addingToIndexQueue.TryRemoveMin().Value;
+			if (indexingTask != null)
 			{
-				processAddToIndexTask(fileToAdd);
-				return;
-			}
-
-			var (fileToRepeat, postponedTask) = _repetitionTasks.TryDequeue();
-			if (fileToRepeat != null)
-			{
-				processAddToIndexTask(fileToRepeat, postponedTask);
+				processAddToIndexTask(indexingTask);
 				return;
 			}
 
@@ -114,59 +118,51 @@ namespace IndexExercise.Index
 
 
 
-		private void fileCreatead(object sender, FileEntry<Metadata> file) => add(file);
+		private void fileCreatead(object sender, FileEntry<Metadata> file) => addDelayedTask(file);
+
 		private void fileDeleted(object sender, FileEntry<Metadata> file) => remove(file);
+
+		private void fileMoved(object sender, FileEntry<Metadata> file) => move(file);
+
 		private void fileAccessError(object sender, EntryAccessError accessError) => EntryAccessError?.Invoke(this, accessError);
 
-		private void add(FileEntry<Metadata> fileEntry)
+		private void addDelayedTask(FileEntry<Metadata> fileEntry)
 		{
-			string path = fileEntry.GetPath();
+			var indexingTask = new IndexingTask(IndexingAction.AddContent, fileEntry, CancellationToken);
 
-			if (path == null)
+			_indexingTaskProcessor.SetFilePropertiesOf(indexingTask);
+
+			// file was deleted
+			if (indexingTask.Path == null)
 				return;
 
-			if (isIndexFileOrDirectory(path))
-				return;
-
-			if (!tryGetFileLength(path, out long length))
-				return;
-
-			fileEntry.Data.Length = length;
-
-			_filesByContentId.Add(fileEntry.Data.ContentId, fileEntry);
-			_addingToIndexQueue.Add(fileEntry, fileEntry.Data.Length);
+			_delayedTasksQueue.TryEnqueue(fileEntry, indexingTask);
+			_filesByContentId.TryAdd(fileEntry.Data.ContentId, fileEntry);
 		}
 
-		private bool isIndexFileOrDirectory(string path)
+		private void advanceDelayedTask(IndexingTask indexingTask)
 		{
-			string indexDirectory = _indexEngine.IndexDirectory;
+			if (DateTime.UtcNow - indexingTask.CreationTime < ThrottleDelay)
+				return;
 
-			if (indexDirectory == null)
-				return false;
-
-			if (!path.StartsWith(indexDirectory, PathString.Comparison))
-				return false;
-
-			if (path.Length == indexDirectory.Length)
-				return true;
-
-			char separator = path[indexDirectory.Length + 1];
-			return separator == Path.DirectorySeparatorChar || separator == Path.AltDirectorySeparatorChar;
+			if (_delayedTasksQueue.TryRemove(indexingTask.FileEntry))
+				_addingToIndexQueue.Add(indexingTask.FileEntry, indexingTask, indexingTask.FileEntry.Data.Length);
 		}
 
 		private void remove(FileEntry<Metadata> file)
 		{
-			_filesByContentId.Remove(file.Data.ContentId, file);
+			_filesByContentId.TryRemove(file.Data.ContentId, file);
 
 			// The file was removed so there is no need to index it.
 			// If another file happens to be created with the same path,
 			// it will be enqueued and processed normally by detecting and processing the creation.
-			_addingToIndexQueue.Remove(file);
-			_repetitionTasks.Remove(file);
+			_delayedTasksQueue.TryRemove(file);
+			_addingToIndexQueue.TryRemove(file);
 
 			var currentTask = _currentTask;
-			if (file == currentTask.Entry && currentTask.Task.Action == IndexingAction.AddContent)
-				currentTask.Task.Cancel();
+
+			if (currentTask != null && currentTask.FileEntry == file && currentTask.Action == IndexingAction.AddContent)
+				currentTask.Cancel();
 
 			if (!_filesByContentId.ContainsKey(file.Data.ContentId))
 			{
@@ -177,6 +173,33 @@ namespace IndexExercise.Index
 			}
 		}
 
+		private void move(FileEntry<Metadata> fileEntry)
+		{
+			bool needToReindex = false;
+
+			var currentTask = _currentTask;
+			if (currentTask != null && currentTask.FileEntry == fileEntry && currentTask.Action == IndexingAction.AddContent)
+			{
+				currentTask.Cancel();
+				needToReindex = true;
+			}
+
+			needToReindex |= _addingToIndexQueue.TryRemove(fileEntry);
+			needToReindex |= _delayedTasksQueue.TryRemove(fileEntry);
+
+			var indexedTime = _filesByContentId[fileEntry.Data.ContentId]
+				.Select(_ => _.Data.IndexedTime)
+				.DefaultIfEmpty(DateTime.MinValue)
+				.Max();
+
+			// if the moved file was indexed just moments ago we cannot be sure we indexed the right one.
+			// maybe we scanned its previous location and there was some other file
+			needToReindex |= DateTime.UtcNow - indexedTime < AllowablePathSynchronizationLag;
+
+			if (needToReindex)
+				addDelayedTask(fileEntry);
+		}
+
 		private IEnumerable<FileEntry<Metadata>> findFiles(long contentId)
 		{
 			return _filesByContentId[contentId];
@@ -184,73 +207,34 @@ namespace IndexExercise.Index
 
 
 
-		private void processAddToIndexTask(FileEntry<Metadata> fileToAdd)
-		{
-			string path = fileToAdd.GetPath();
-
-			if (path == null)
-				return;
-
-			var indexingTask = new IndexingTask(IndexingAction.AddContent, fileToAdd.Data.ContentId, CancellationToken, fileToAdd.Data.Length, path);
-
-			processAddToIndexTask(fileToAdd, indexingTask);
-		}
-
-		private void processAddToIndexTask(FileEntry<Metadata> fileToAdd, IndexingTask indexingTask)
+		private void processAddToIndexTask(IndexingTask indexingTask)
 		{
 			BeginProcessingTask?.Invoke(this, indexingTask);
 
-			_currentTask = (indexingTask, fileToAdd);
+			_currentTask = indexingTask;
 			_indexingTaskProcessor.ProcessTask(indexingTask);
-			_currentTask = (Task: null, Entry: null);
+			_currentTask = null;
 
 			EndProcessingTask?.Invoke(this, indexingTask);
 
 			if (indexingTask.HasToBeRepeated)
-				_repetitionTasks.Enqueue(fileToAdd, indexingTask.CreateRepetitionTask());
+				_delayedTasksQueue.TryEnqueue(indexingTask.FileEntry, indexingTask);
 		}
 
 		private void processRemoveFromIndexTask(FileEntry<Metadata> fileToRemove)
 		{
-			var indexingTask = new IndexingTask(IndexingAction.RemoveContent, fileToRemove.Data.ContentId, CancellationToken);
+			var indexingTask = new IndexingTask(IndexingAction.RemoveContent, fileToRemove, CancellationToken);
 
 			BeginProcessingTask?.Invoke(this, indexingTask);
 
-			_currentTask = (indexingTask, fileToRemove);
+			_currentTask = indexingTask;
 			_indexingTaskProcessor.ProcessTask(indexingTask);
-			_currentTask = (Task: null, Entry: null);
+			_currentTask = null;
 
 			EndProcessingTask?.Invoke(this, indexingTask);
 		}
 
 
-
-		private bool tryGetFileLength(string path, out long length)
-		{
-			length = 0;
-
-			try
-			{
-				var fileInfo = new FileInfo(path);
-				length = fileInfo.Length;
-				return true;
-			}
-			catch (SecurityException ex)
-			{
-				EntryAccessError?.Invoke(this, new EntryAccessError(EntryType.File, path, ex));
-				return false;
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				EntryAccessError?.Invoke(this, new EntryAccessError(EntryType.File, path, ex));
-				return false;
-			}
-			catch (FileNotFoundException ex)
-			{
-				EntryAccessError?.Invoke(this, new EntryAccessError(EntryType.File, path, ex));
-				return false;
-			}
-		}
 
 		public IQueryBuilder QueryBuilder => _indexEngine.QueryBuilder;
 
@@ -258,23 +242,62 @@ namespace IndexExercise.Index
 		public event EventHandler<IndexingTask> BeginProcessingTask;
 		public event EventHandler<IndexingTask> EndProcessingTask;
 
+		/// <summary>
+		/// A delay between changed file content is detected and indexing task is enqueued.
+		/// Helps avoid some indexing attempts interrupted due to a subsequent change.
+		/// 
+		/// Should be greater or equal than <see cref="AllowablePathSynchronizationLag"/>
+		/// </summary>
+		public TimeSpan ThrottleDelay
+		{
+			get => _throttleDelay;
+			set
+			{
+				if (value <= TimeSpan.Zero)
+					throw new ArgumentException($"{nameof(ThrottleDelay)} must be a positive {nameof(TimeSpan)}");
 
-		private (IndexingTask Task, FileEntry<Metadata> Entry) _currentTask;
+				_throttleDelay = value;
+			}
+		}
 
+		private TimeSpan _throttleDelay = TimeSpan.FromMilliseconds(400);
+
+		/// <summary>
+		/// A maximum time interval we expect between an observed <see cref="FileEntry{TData}"/> is 
+		/// moved and the return value of <see cref="Entry{TData}.GetPath"/> changes
+		/// </summary>
+		public TimeSpan AllowablePathSynchronizationLag
+		{
+			get => _allowablePathSynchronizationLag;
+
+			set
+			{
+				if (value <= TimeSpan.Zero)
+					throw new ArgumentException($"{nameof(AllowablePathSynchronizationLag)} must be a positive {nameof(TimeSpan)}");
+
+				_allowablePathSynchronizationLag = value;
+			}
+		}
+
+		private TimeSpan _allowablePathSynchronizationLag = TimeSpan.FromMilliseconds(400);
+
+		private IndexingTask _currentTask;
+
+		private static Watcher _watcher;
 		private readonly Mirror _mirror;
 		private readonly IndexingTaskProcessor _indexingTaskProcessor;
 		private readonly IIndexEngine _indexEngine;
 
-		private readonly OrderedSet<FileEntry<Metadata>, long> _addingToIndexQueue =
-			new OrderedSet<FileEntry<Metadata>, long>();
+		private readonly FifoMap<FileEntry<Metadata>, IndexingTask> _delayedTasksQueue =
+			new FifoMap<FileEntry<Metadata>, IndexingTask>();
+
+		private readonly OrderedMap<FileEntry<Metadata>, IndexingTask, long> _addingToIndexQueue =
+			new OrderedMap<FileEntry<Metadata>, IndexingTask, long>();
 
 		private readonly FifoSet<FileEntry<Metadata>> _removingFromIndexQueue =
 			new FifoSet<FileEntry<Metadata>>();
 
-		private readonly FifoMap<FileEntry<Metadata>, IndexingTask> _repetitionTasks =
-			new FifoMap<FileEntry<Metadata>, IndexingTask>();
-
-		private readonly Grouping<long, FileEntry<Metadata>> _filesByContentId =
-			new Grouping<long, FileEntry<Metadata>>();
+		private readonly SetGrouping<long, FileEntry<Metadata>> _filesByContentId =
+			new SetGrouping<long, FileEntry<Metadata>>();
 	}
 }

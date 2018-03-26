@@ -19,7 +19,7 @@ namespace IndexExercise.Index.FileSystem
 					return;
 
 				var watcher = createWatcher(target);
-				
+
 				watcher.EnableRaisingEvents = _enabled;
 
 				_watchers.Add(target, watcher);
@@ -130,10 +130,10 @@ namespace IndexExercise.Index.FileSystem
 			{
 				case EntryType.File:
 					return new WatchTarget(entryType, Path.Combine(fileSystemWatcher.Path, fileSystemWatcher.Filter));
-				
+
 				case EntryType.Directory:
 					return new WatchTarget(entryType, fileSystemWatcher.Path);
-				
+
 				default:
 					throw new ArgumentException($"Watching {entryType} is not supported", nameof(entryType));
 			}
@@ -149,16 +149,16 @@ namespace IndexExercise.Index.FileSystem
 		/// </summary>
 		public bool IsPathCorrect(WatchTarget target)
 		{
-			FileSystemWatcher watcher;
 			lock (_sync)
 			{
-				if (!_watchers.TryGetValue(target, out watcher))
+				if (!_watchers.TryGetValue(target, out var watcher))
 					return true;
+
+				string expectedPath = _initialWatchPaths[watcher];
+				string actualPath = WatcherPathInspector.GetActualPath(watcher);
+
+				return PathString.Comparer.Equals(expectedPath, actualPath);
 			}
-
-			var (expectedPath, actualPath) = getWatcherPath(watcher);
-
-			return PathString.Comparer.Equals(expectedPath, actualPath);
 		}
 
 		/// <summary>
@@ -173,10 +173,16 @@ namespace IndexExercise.Index.FileSystem
 			if (change.FileSystemWatcher == null)
 				return;
 
-			var (expectedPath, actualPath) = getWatcherPath(change.FileSystemWatcher);
-
-			if (!PathString.Comparer.Equals(expectedPath, actualPath))
+			lock (_sync)
 			{
+				if (!_initialWatchPaths.TryGetValue(change.FileSystemWatcher, out var expectedPath))
+					return;
+			
+				string actualPath = WatcherPathInspector.GetActualPath(change.FileSystemWatcher);
+
+				if (PathString.Comparer.Equals(expectedPath, actualPath))
+					return;
+
 				throw new ApplicationException(new StringBuilder()
 					.AppendLine("Observed directory was moved. Initial path:")
 					.AppendLine(expectedPath)
@@ -185,18 +191,6 @@ namespace IndexExercise.Index.FileSystem
 					.AppendLine(actualPath)
 					.ToString());
 			}
-		}
-
-		private (string expectedPath, string actualPath) getWatcherPath(FileSystemWatcher watcher)
-		{
-			string expectedPath;
-
-			lock (_sync)
-				expectedPath = _initialWatchPaths[watcher];
-
-			string actualPath = WatcherPathInspector.GetActualPath(watcher);
-
-			return (expectedPath, actualPath);
 		}
 
 

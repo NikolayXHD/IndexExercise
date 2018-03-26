@@ -1,4 +1,6 @@
-﻿namespace IndexExercise.Index.FileSystem
+﻿using System;
+
+namespace IndexExercise.Index.FileSystem
 {
 	public class Metadata
 	{
@@ -10,6 +12,8 @@
 		public long ContentId { get; }
 
 		public long Length { get; set; } = -1L;
+
+		public DateTime IndexedTime { get; set; }
 
 		public override string ToString()
 		{

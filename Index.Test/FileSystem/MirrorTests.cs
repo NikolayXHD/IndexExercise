@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using IndexExercise.Index.Collections;
 using IndexExercise.Index.FileSystem;
 using NUnit.Framework;
 
@@ -21,14 +22,14 @@ namespace IndexExercise.Index.Test
 			_util.Dispose();
 		}
 
-		[TestCase(/* delayBeforeWatch */ true)]
-		[TestCase(/* delayBeforeWatch */ false)]
+		[TestCase( /* delayBeforeWatch */ true)]
+		[TestCase( /* delayBeforeWatch */ false)]
 		public async Task Preexisting_file_is_synchronized(bool delayBeforeWatch)
 		{
 			string directoryName = _util.CreateDirectory("directory");
-			
+
 			_util.CreateFile("file", parent: directoryName);
-			
+
 			// delayBeforeWatch == true guarantees that preexisting files / directory creations
 			// actually happen before the watcher starts.
 			// delayBeforeWatch == false makes test non-deterministic
@@ -45,14 +46,14 @@ namespace IndexExercise.Index.Test
 				"	file #0");
 		}
 
-		[TestCase(/* delayBeforeWatch */ true)]
-		[TestCase(/* delayBeforeWatch */ false)]
+		[TestCase( /* delayBeforeWatch */ true)]
+		[TestCase( /* delayBeforeWatch */ false)]
 		public async Task Preexisting_directory_is_synchronized(bool delayBeforeWatch)
 		{
 			string directoryName = _util.CreateDirectory("directory");
-			
+
 			_util.CreateDirectory("subdirectory", parent: directoryName);
-			
+
 			// delayBeforeWatch == true guarantees that preexisting files / directory creations
 			// actually happen before the watcher starts.
 			// delayBeforeWatch == false makes test non-deterministic
@@ -122,12 +123,10 @@ namespace IndexExercise.Index.Test
 			await _util.SmallDelay();
 
 			var expectedStructure =
-				Enumerable.Repeat(Path.GetFileName(_util.WorkingDirectory) + $"/ 0+{added.Count + preexisting.Count}+0", 1)
-					.Concat(added
-						.Concat(preexisting)
-						.OrderBy(_ => _, PathString.Comparer)
-						.Select(Path.GetFileName)
-						.Select(_ => $"\t{_}"))
+				Unit.Sequence($"{Path.GetFileName(_util.WorkingDirectory)}/ 0+{added.Count + preexisting.Count}+0")
+					.Concat(
+						added.Concat(preexisting).Select(_ => $"\t{Path.GetFileName(_)}")
+							.OrderBy(_ => _, PathString.Comparer))
 					.ToArray();
 
 			_util.AssertDirectoryStructure(
@@ -148,7 +147,7 @@ namespace IndexExercise.Index.Test
 			await _util.SmallDelay();
 
 			var expectedStructure =
-				Enumerable.Repeat(Path.GetFileName(_util.WorkingDirectory) + $"/ {added.Count + preexisting.Count}+0+0", 1)
+				Unit.Sequence((Path.GetFileName(_util.WorkingDirectory) + $"/ {added.Count + preexisting.Count}+0+0"))
 					.Concat(added
 						.Concat(preexisting)
 						.OrderBy(_ => _, PathString.Comparer)
@@ -237,6 +236,61 @@ namespace IndexExercise.Index.Test
 				directoryName,
 				"directory/ 0+1+0",
 				"	renamed_file #0");
+		}
+
+		[TestCase( /*updateCyclesCount*/ 10, /*filesCount*/ 20, /*wordsInFile*/ 300)]
+		public async Task When_files_are_quickly_renamed_Then_eventually_directory_structure_becomes_up_to_date(
+			int updateCyclesCount,
+			int filesCount,
+			int wordsInFile)
+		{
+			var originalFileNames = Enumerable.Range(0, filesCount)
+				.Select(j => _util.GetFileName($"file_original_{j}"))
+				.ToArray();
+
+			var renamedFileNames = Enumerable.Range(0, filesCount)
+				.Select(j => _util.GetFileName($"file_renamed_{j}"))
+				.ToArray();
+
+			var filesContent = Enumerable.Range(0, filesCount)
+				.Select(j => string.Join(" ", Enumerable.Range(0, wordsInFile).Select(k => $"content_{j}_word_{k}")))
+				.ToList();
+
+			_util.Watch(EntryType.Directory);
+
+			var filesOrder = Enumerable.Range(0, filesCount)
+				.ToList();
+
+			foreach (int j in filesOrder)
+				_util.CreateFile(originalFileNames[j], content: filesContent[j]);
+
+			for (int i = 0; i < updateCyclesCount; i++)
+			{
+				filesOrder.Shuffle();
+
+				foreach (int j in filesOrder)
+					_util.MoveFile(originalFileNames[j], renamedFileNames[j]);
+
+				// do not rename files back on last iteration
+				if (i == updateCyclesCount - 1)
+					break;
+
+				filesOrder.Shuffle();
+
+				foreach (int j in filesOrder)
+					_util.MoveFile(renamedFileNames[j], originalFileNames[j]);
+			}
+
+			await _util.SmallDelay();
+
+			_util.AssertDirectoryStructure(
+				_util.WorkingDirectory,
+				compareData: false,
+				expectedStructureLines:
+				Unit.Sequence($"working/ 0+{filesCount}+0")
+					.Concat(Enumerable.Range(0, filesCount)
+						.Select(j => $"	file_renamed_{j}")
+						.OrderBy(_ => _, PathString.Comparer)));
 		}
 
 		[Test]

@@ -6,21 +6,13 @@ namespace IndexExercise.Index.Collections
 	/// Groups added <see cref="TValue"/>s by <see cref="TKey"/>
 	/// to a sets of unique <see cref="TValue"/>s
 	/// </summary>
-	internal class Grouping<TKey, TValue>
+	internal class SetGrouping<TKey, TValue>
 	{
-		/// <summary>
-		/// Groups added <see cref="TValue"/>s by <see cref="TKey"/>
-		/// to a sets of unique <see cref="TValue"/>s
-		/// </summary>
-		public Grouping()
-		{
-		}
-
 		/// <summary>
 		/// Adds a <see cref="value"/> if it is still not associated with a <see cref="key"/>
 		/// </summary>
 		/// <returns>Returns false if the <see cref="value"/> is already associated with the <see cref="key"/></returns>
-		public bool Add(TKey key, TValue value)
+		public bool TryAdd(TKey key, TValue value)
 		{
 			lock (_sync)
 			{
@@ -38,7 +30,7 @@ namespace IndexExercise.Index.Collections
 		/// Removes the <see cref="value"/> from a set accociated with a <see cref="key"/>
 		/// </summary>
 		/// <returns>Returns false if there was no <see cref="value"/> to remove</returns>
-		public bool Remove(TKey key, TValue value)
+		public bool TryRemove(TKey key, TValue value)
 		{
 			lock (_sync)
 			{

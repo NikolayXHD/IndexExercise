@@ -42,7 +42,7 @@ namespace IndexExercise.Index.Test
 			_indexEngine.Update(3L, content: "1 2 3 4");
 			_indexEngine.Update(4L, content: "1     4");
 
-			var query = _indexEngine.QueryBuilder.ValueQuery(queriedValue).Build();
+			var query = _indexEngine.QueryBuilder.ValueQuery(queriedValue);
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(expectedResult));
 		}
@@ -57,7 +57,7 @@ namespace IndexExercise.Index.Test
 			_indexEngine.Update(3L, content: "1234");
 			_indexEngine.Update(4L, content: "14  ");
 
-			var query = _indexEngine.QueryBuilder.PrefixQuery(queriedValue).Build();
+			var query = _indexEngine.QueryBuilder.PrefixQuery(queriedValue);
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(expectedResult));
 		}
 
@@ -75,7 +75,7 @@ namespace IndexExercise.Index.Test
 
 			var phraseValues = phraseQuery.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-			var query = _indexEngine.QueryBuilder.PhraseQuery(phraseValues).Build();
+			var query = _indexEngine.QueryBuilder.PhraseQuery(phraseValues);
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(expectedResult));
 		}
 
@@ -90,9 +90,8 @@ namespace IndexExercise.Index.Test
 			var builder = _indexEngine.QueryBuilder;
 
 			var query = builder.Boolean(
-					(BoolOperator.And, builder.ValueQuery("3")),
-					(BoolOperator.And, builder.ValueQuery("4")))
-				.Build();
+				(BoolOperator.And, builder.ValueQuery("3")),
+				(BoolOperator.And, builder.ValueQuery("4")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 3L }));
 		}
@@ -109,8 +108,7 @@ namespace IndexExercise.Index.Test
 
 			var query = builder.Boolean(
 					(BoolOperator.Or, builder.ValueQuery("3")),
-					(BoolOperator.Or, builder.ValueQuery("4")))
-				.Build();
+					(BoolOperator.Or, builder.ValueQuery("4")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 2L, 3L, 4L }));
 		}
@@ -127,8 +125,7 @@ namespace IndexExercise.Index.Test
 
 			var query = builder.Boolean(
 					(BoolOperator.And, builder.ValueQuery("2")),
-					(BoolOperator.Not, builder.ValueQuery("4")))
-				.Build();
+					(BoolOperator.Not, builder.ValueQuery("4")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 1L, 2L }));
 		}
@@ -138,9 +135,7 @@ namespace IndexExercise.Index.Test
 		{
 			var builder = _indexEngine.QueryBuilder;
 
-			var query = builder.Boolean(
-					(BoolOperator.Not, builder.ValueQuery("1")))
-				.Build();
+			var query = builder.Boolean((BoolOperator.Not, builder.ValueQuery("1")));
 
 			Assert.That(query.Warnings.Count > 0);
 		}
@@ -149,8 +144,7 @@ namespace IndexExercise.Index.Test
 		public void Purely_negative_query_from_engine_specific_syntax_contains_warning()
 		{
 			var query = _indexEngine.QueryBuilder
-				.EngineSpecificQuery("NOT 1")
-				.Build();
+				.EngineSpecificQuery("NOT 1");
 
 			Assert.That(query.Warnings.Count > 0);
 		}
@@ -165,9 +159,7 @@ namespace IndexExercise.Index.Test
 
 			var builder = _indexEngine.QueryBuilder;
 
-			var query = builder.Boolean(
-					(BoolOperator.Not, builder.ValueQuery("2")))
-				.Build();
+			var query = builder.Boolean((BoolOperator.Not, builder.ValueQuery("2")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 4L }));
 		}
@@ -183,9 +175,8 @@ namespace IndexExercise.Index.Test
 			var builder = _indexEngine.QueryBuilder;
 
 			var query = builder.Boolean(
-					(BoolOperator.And, builder.ValueQuery("3")),
-					(BoolOperator.Or, builder.ValueQuery("4")))
-				.Build();
+				(BoolOperator.And, builder.ValueQuery("3")),
+				(BoolOperator.Or, builder.ValueQuery("4")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 3L }));
 		}
@@ -203,8 +194,7 @@ namespace IndexExercise.Index.Test
 			var query = builder.Boolean(
 					(BoolOperator.And, builder.ValueQuery("2")),
 					(BoolOperator.Or, builder.ValueQuery("3")),
-					(BoolOperator.Or, builder.ValueQuery("4")))
-				.Build();
+					(BoolOperator.Or, builder.ValueQuery("4")));
 
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 2L, 3L }));
 		}

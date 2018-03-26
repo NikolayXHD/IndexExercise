@@ -13,7 +13,7 @@ namespace IndexExercise.Index
 			CancellationToken = _cancellationTokenSource.Token;
 		}
 
-		public virtual async Task Start()
+		public virtual async Task RunAsync()
 		{
 			lock (SyncRoot)
 			{
@@ -32,22 +32,13 @@ namespace IndexExercise.Index
 			{
 				await _task;
 			}
+			catch (Exception ex) when (shouldIgnoreException(ex))
+			{
+			}
 			catch (Exception ex)
 			{
 				BackgorundLoopFailed?.Invoke(this, ex);
 				throw;
-			}
-		}
-
-
-		private async Task backgroundWorkLoop()
-		{
-			while (true)
-			{
-				if (CancellationToken.IsCancellationRequested)
-					return;
-
-				await BackgroundLoopIteration();
 			}
 		}
 
@@ -67,24 +58,12 @@ namespace IndexExercise.Index
 			{
 				_task.Wait();
 			}
-			catch (OperationCanceledException)
+			catch (Exception ex) when (shouldIgnoreException(ex))
 			{
-			}
-			catch (AggregateException ex) when (ex.InnerExceptions.All(inner => inner is OperationCanceledException))
-			{
-			}
-			catch (AggregateException ex)
-			{
-				var flatten = ex.Flatten();
-
-				if (flatten.InnerExceptions.Count == 1)
-					throw flatten.InnerExceptions[0];
-
-				throw flatten;
 			}
 		}
 
-		public event EventHandler<Exception> BackgorundLoopFailed;
+
 
 		protected abstract Task BackgroundLoopIteration();
 
@@ -94,6 +73,29 @@ namespace IndexExercise.Index
 			await Task.Delay(IdleDelay, CancellationToken);
 		}
 
+
+
+		private async Task backgroundWorkLoop()
+		{
+			while (true)
+			{
+				if (CancellationToken.IsCancellationRequested)
+					return;
+
+				await BackgroundLoopIteration();
+			}
+		}
+
+		private static bool shouldIgnoreException(Exception ex)
+		{
+			return ex is OperationCanceledException ||
+				ex is AggregateException aggregateEx &&
+				aggregateEx.Flatten().InnerExceptions.All(inner => inner is OperationCanceledException);
+		}
+
+
+
+		public event EventHandler<Exception> BackgorundLoopFailed;
 		public event EventHandler<TimeSpan> Idle;
 
 		public TimeSpan IdleDelay
@@ -109,8 +111,6 @@ namespace IndexExercise.Index
 		}
 
 		private TimeSpan _idleDelay = TimeSpan.FromMilliseconds(value: 100);
-
-		
 
 		protected CancellationToken CancellationToken { get; }
 		private readonly CancellationTokenSource _cancellationTokenSource;

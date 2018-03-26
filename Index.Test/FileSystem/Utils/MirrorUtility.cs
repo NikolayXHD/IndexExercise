@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using IndexExercise.Index.FileSystem;
@@ -8,20 +9,25 @@ namespace IndexExercise.Index.Test
 {
 	public class MirrorUtility : WatchUtilityBase
 	{
-		public MirrorUtility(Mirror.FilesFilter filesFilter = null)
+		public MirrorUtility(Mirror.FileNameFilter fileNameFilter = null)
 		{
-			Mirror = new Mirror(Watcher, new SequentialId(), filesFilter)
+			Mirror = new Mirror(Watcher, new SequentialId(), fileNameFilter)
 			{
 				IdleDelay = TimeSpan.FromMilliseconds(value: 10)
 			};
 
 			Mirror.EntryFound += entryFound;
 			Mirror.ProcessingChange += processingChange;
+			
 			Mirror.EnqueuedCreatedEntry += enqueuedCreatedEntry;
-			Mirror.ProcessingCreatedEntry += processingCreatedEntry;
 			Mirror.EnqueuedDeletedEntry += enqueuedDeletedEntry;
+			Mirror.EnqueuedMovedEntry += enqueuedMovedEntry;
+
+			Mirror.ProcessingCreatedEntry += processingCreatedEntry;
 			Mirror.ProcessingDeletedEntry += processingDeletedEntry;
-			Mirror.Idle += watcherIdle;
+			Mirror.ProcessingMovedEntry += processingMovedEntry;
+
+			Mirror.Idle += mirrorIdle;
 			Mirror.EntryAccessError += entryAccessError;
 			Mirror.BackgorundLoopFailed += backgroundLoopFailed;
 		}
@@ -32,49 +38,59 @@ namespace IndexExercise.Index.Test
 			base.Dispose();
 		}
 
-		private void processingChange(object sender, Change change)
+		private static void processingChange(object sender, Change change)
 		{
-			Log.Debug($"processing {change}");
+			Log.Debug($"mirror processing {change}");
 		}
 
-		private void enqueuedCreatedEntry(object sender, Entry<Metadata> e)
+		private static void enqueuedCreatedEntry(object sender, Entry<Metadata> e)
 		{
-			Log.Debug($"enqueue created {e.Type} {e.Name} {e.Data}");
+			Log.Debug($"mirror enqueue created {e.Type} {e.Name} {e.Data}");
 		}
 
-		private void enqueuedDeletedEntry(object sender, Entry<Metadata> e)
+		private static void enqueuedDeletedEntry(object sender, Entry<Metadata> e)
 		{
-			Log.Debug($"enqueue deleted {e.Type} {e.Name} {e.Data}");
+			Log.Debug($"mirror enqueue deleted {e.Type} {e.Name} {e.Data}");
 		}
 
-		private void processingCreatedEntry(object sender, Entry<Metadata> e)
+		private static void enqueuedMovedEntry(object sender, Entry<Metadata> e)
 		{
-			Log.Debug($"process created {e.Type} {e.Name} {e.Data}");
+			Log.Debug($"mirror enqueue moved {e.Type} {e.Name} {e.Data}");
 		}
 
-		private void processingDeletedEntry(object sender, Entry<Metadata> e)
+		private static void processingCreatedEntry(object sender, Entry<Metadata> e)
 		{
-			Log.Debug($"process deleted {e.Type} {e.Name} {e.Data}");
+			Log.Debug($"mirror process created {e.Type} {e.Name} {e.Data}");
 		}
 
-		private void watcherIdle(object sender, TimeSpan delay)
+		private static void processingDeletedEntry(object sender, Entry<Metadata> e)
 		{
-			Log.Debug($"watcher idle {(int) delay.TotalMilliseconds} ms");
+			Log.Debug($"mirror process deleted {e.Type} {e.Name} {e.Data}");
 		}
 
-		private void entryFound(object sender, Find found)
+		private static void processingMovedEntry(object sender, Entry<Metadata> e)
+		{
+			Log.Debug($"mirror process moved {e.Type} {e.Name} {e.Data}");
+		}
+
+		private static void mirrorIdle(object sender, TimeSpan delay)
+		{
+			Log.Debug($"mirror idle {(int) delay.TotalMilliseconds} ms");
+		}
+
+		private static void entryFound(object sender, Find found)
 		{
 			Log.Debug(found.ToString);
 		}
 
-		private void entryAccessError(object sender, EntryAccessError accessError)
+		private static void entryAccessError(object sender, EntryAccessError accessError)
 		{
 			Log.Error(accessError.ToString);
 		}
 
-		private void backgroundLoopFailed(object sender, Exception ex)
+		private static void backgroundLoopFailed(object sender, Exception ex)
 		{
-			Log.Error(ex, "background loop failed");
+			Log.Error(ex, "mirror background loop failed");
 		}
 
 
@@ -84,9 +100,9 @@ namespace IndexExercise.Index.Test
 			var target = new WatchTarget(entryType, path ?? WorkingDirectory);
 
 			Mirror.Watch(target);
-			Mirror.Start();
+			Mirror.RunAsync();
 
-			Log.Debug($"watch {target}");
+			Log.Debug($"mirror watch {target}");
 		}
 
 		public void AssertDirectoryStructure(string directoryName, params string[] expectedStructureLines)
@@ -95,6 +111,11 @@ namespace IndexExercise.Index.Test
 		}
 
 		public void AssertDirectoryStructure(string directoryName, bool compareData, params string[] expectedStructureLines)
+		{
+			AssertDirectoryStructure(directoryName, compareData, (IEnumerable<string>) expectedStructureLines);
+		}
+
+		public void AssertDirectoryStructure(string directoryName, bool compareData, IEnumerable<string> expectedStructureLines)
 		{
 			var expectedStructure = string.Join(Environment.NewLine, expectedStructureLines) + Environment.NewLine;
 			var absolutePath = Path.Combine(WorkingDirectory, directoryName);

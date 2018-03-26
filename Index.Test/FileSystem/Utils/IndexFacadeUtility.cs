@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using IndexExercise.Index.FileSystem;
 using IndexExercise.Index.Lucene;
 
@@ -10,48 +11,68 @@ namespace IndexExercise.Index.Test
 		{
 			string indexDirectory = CreateDirectory("lucene-index", parent: TempDirectory);
 			var indexEngine = new LuceneIndexEngine(indexDirectory);
-			IndexFacade = new IndexFacade(Mirror, new IndexingTaskProcessor(indexEngine), indexEngine);
+			var indexingTaskProcessor = new IndexingTaskProcessor(indexEngine);
+			
+			_indexFacade = new IndexFacade(Watcher, Mirror, indexingTaskProcessor, indexEngine)
+			{
+				IdleDelay = TimeSpan.FromMilliseconds(10),
+				ThrottleDelay = TimeSpan.FromMilliseconds(100)
+			};
 
-			IndexFacade.IdleDelay = TimeSpan.FromMilliseconds(10);
-			IndexFacade.Idle += indexFacadeIdle;
-			IndexFacade.BeginProcessingTask += beginProcessingTask;
-			IndexFacade.EndProcessingTask += endProcessingTask;
+			_indexFacade.Idle += indexFacadeIdle;
+			_indexFacade.BeginProcessingTask += beginProcessingTask;
+			_indexFacade.EndProcessingTask += endProcessingTask;
+
+			indexingTaskProcessor.FileOpened += indexingTaskProcessorFileOpened;
+		}
+
+		private static void indexingTaskProcessorFileOpened(object sender, IndexingTask task)
+		{
+			if (task.HardlinkPath == null)
+				Log.Error($"indexing failed to create hardlink to {task.Path}. Indexing in original location");
+			else
+				Log.Debug($"indexing {task.Path} at hardlink {task.HardlinkPath}");
 		}
 
 		public void StartIndexFacade()
 		{
-			IndexFacade.Watch(new WatchTarget(EntryType.Directory, WorkingDirectory));
-			IndexFacade.Start();
+			_indexFacade.Watch(new WatchTarget(EntryType.Directory, WorkingDirectory));
+			_indexFacade.RunAsync();
 		}
 
 		public FileSearchResult Search(string query)
 		{
-			var parsedQuery = IndexFacade.QueryBuilder.EngineSpecificQuery(query).Build();
-			return IndexFacade.Search(parsedQuery);
+			return _indexFacade.Search(_indexFacade.QueryBuilder.EngineSpecificQuery(query));
 		}
 
 		public override void Dispose()
 		{
-			IndexFacade.Dispose();
+			_indexFacade.Dispose();
 			base.Dispose();
 		}
 
-		private void beginProcessingTask(object sender, IndexingTask task)
+		private static void beginProcessingTask(object sender, IndexingTask task)
 		{
-			Log.Debug($"begin processing index {task.Action} #{task.ContentId} length:{task.Length}b attempt:{task.Attempts} {task.Path}");
+			Log.Debug($"facade begin processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path}");
 		}
 
-		private void endProcessingTask(object sender, IndexingTask task)
+		private static void endProcessingTask(object sender, IndexingTask task)
 		{
-			Log.Debug($"end processing index {task.Action} #{task.ContentId} length:{task.Length}b attempt:{task.Attempts} {task.Path}");
+			Log.Debug($"facade end processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path}");
 		}
 
-		private void indexFacadeIdle(object sender, TimeSpan delay)
+		private static void indexFacadeIdle(object sender, TimeSpan delay)
 		{
-			Log.Debug($"indexer idle {(int) delay.TotalMilliseconds} ms");
+			Log.Debug($"facade idle {(int) delay.TotalMilliseconds} ms");
 		}
 
+		public async Task ThrottleDelay()
+		{
+			Log.Debug($"delay start {(int) _indexFacade.ThrottleDelay.TotalMilliseconds} ms (same as throttle)");
+			await Task.Delay(_indexFacade.ThrottleDelay);
+			Log.Debug("delay end (same as throttle)");
+		}
 
-		private IndexFacade IndexFacade { get; }
+		private readonly IndexFacade _indexFacade;
 	}
 }

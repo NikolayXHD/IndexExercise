@@ -7,31 +7,26 @@ namespace IndexExercise.Index
 	/// </summary>
 	public interface IQueryBuilder
 	{
-		IQueryBuilder Boolean(params (BoolOperator BooleanOperator, IQueryBuilder Subquery)[] subqueries);
+		IQuery Boolean(IEnumerable<(BoolOperator Operator, IQuery Subquery)> clauses);
 
 		/// <summary>
 		/// A query searching for a specific word in a text
 		/// </summary>
-		IQueryBuilder ValueQuery(string word);
+		IQuery ValueQuery(string word);
 
 		/// <summary>
 		/// A query searching words that occure in a specified sequence withtin a document
 		/// </summary>
-		IQueryBuilder PhraseQuery(IEnumerable<string> phrase);
+		IQuery PhraseQuery(IEnumerable<string> phrase);
 
 		/// <summary>
 		/// A query searching any word that begins with a specified <see cref="prefix"/>
 		/// </summary>
-		IQueryBuilder PrefixQuery(string prefix);
+		IQuery PrefixQuery(string prefix);
 
 		/// <summary>
 		/// A query expressed in engine - specific search syntax
 		/// </summary>
-		IQueryBuilder EngineSpecificQuery(string query);
-
-		/// <summary>
-		/// Create a query from the current state of <see cref="IQueryBuilder"/>
-		/// </summary>
-		IQuery Build();
+		IQuery EngineSpecificQuery(string query);
 	}
 }

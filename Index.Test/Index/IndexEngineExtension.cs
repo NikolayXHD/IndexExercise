@@ -17,11 +17,7 @@ namespace IndexExercise.Index.Test
 
 		public static ContentSearchResult Search(this IIndexEngine engine, string engineSpecificQuery)
 		{
-			var query = engine.QueryBuilder
-				.EngineSpecificQuery(engineSpecificQuery)
-				.Build();
-
-			return engine.Search(query);
+			return engine.Search(engine.QueryBuilder.EngineSpecificQuery(engineSpecificQuery));
 		}
 	}
 }

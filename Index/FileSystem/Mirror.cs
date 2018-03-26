@@ -22,23 +22,24 @@ namespace IndexExercise.Index.FileSystem
 		/// </summary>
 		/// <param name="watcher">Raises events on file system changes</param>
 		/// <param name="sequentialId">Used to generate identifiers to track file content</param>
-		/// <param name="systemFilesFilter">A deterministic function to limit the observed scope</param>
+		/// <param name="systemFileNameFilter">A deterministic function to limit the observed scope</param>
 		public Mirror(
 			Watcher watcher,
 			SequentialId sequentialId,
-			FilesFilter systemFilesFilter = null)
+			FileNameFilter systemFileNameFilter = null)
 		{
 			_watcher = watcher;
 			_watcher.ChangeDetected += changeDetected;
 			_watcher.Error += watcherError;
 
-			_filesFilter = systemFilesFilter ?? (fullFileName => true);
+			_fileNameFilter = systemFileNameFilter ?? (fullFileName => true);
 			_sequentialId = sequentialId;
 
-			_root = new RootEntry<Metadata>(() => new Metadata(_sequentialId.None));
+			_root = new RootEntry<Metadata>(() => new Metadata(SequentialId.None));
 
 			_createdEntriesQueue.Enqueued += (sender, entry) => EnqueuedCreatedEntry?.Invoke(this, entry);
 			_deletedEntriesQueue.Enqueued += (sender, entry) => EnqueuedDeletedEntry?.Invoke(this, entry);
+			_movedEntriesQueue.Enqueued += (sender, entry) => EnqueuedMovedEntry?.Invoke(this, entry);
 		}
 
 		protected override async Task BackgroundLoopIteration()
@@ -64,24 +65,29 @@ namespace IndexExercise.Index.FileSystem
 				return;
 			}
 
+			var movedEntry = _movedEntriesQueue.TryDequeue();
+			if (movedEntry != null)
+			{
+				processMovedEntry(movedEntry);
+				return;
+			}
+
 			inspectWatchTargets();
 
 			await IdleDelayTask();
 		}
 
-		public override Task Start()
+		public override Task RunAsync()
 		{
 			// before base.Start() to make sure the watcher is allways enabled
 			// when BackgroundLoopIteration is executed
 			_watcher.Enabled = true;
-			return base.Start();
+			return base.RunAsync();
 		}
 
 		public override void Dispose()
 		{
 			_watcher.Enabled = false;
-			_watcher.Dispose();
-
 			base.Dispose();
 		}
 
@@ -204,7 +210,7 @@ namespace IndexExercise.Index.FileSystem
 					break;
 
 				case DirectoryEntry<Metadata> directory:
-					removeDirectory(directory);
+					raiseFileDeletedEvents(directory);
 					break;
 
 				case UnclassifiedEntry<Metadata> _:
@@ -215,6 +221,30 @@ namespace IndexExercise.Index.FileSystem
 			}
 		}
 
+		private void processMovedEntry(Entry<Metadata> entry)
+		{
+			ProcessingMovedEntry?.Invoke(this, entry);
+
+			switch (entry)
+			{
+				case RootEntry<Metadata> _:
+					throw new InvalidOperationException($"processing {entry.GetType()} entry is not supported");
+
+				case FileEntry<Metadata> file:
+					FileMoved?.Invoke(this, file);
+					break;
+
+				case DirectoryEntry<Metadata> directory:
+					raiseFileMovedEvents(directory);
+					break;
+
+				case UnclassifiedEntry<Metadata> _:
+					break;
+
+				default:
+					throw new InvalidOperationException($"processing {entry.GetType()} entry is not supported");
+			}
+		}
 
 
 		private void inspectWatchTargets()
@@ -309,7 +339,7 @@ namespace IndexExercise.Index.FileSystem
 
 		private bool isWatched(EntryType type, string path)
 		{
-			if (type == EntryType.File && !_filesFilter(path))
+			if (type == EntryType.File && !_fileNameFilter(path))
 				return false;
 
 			lock (_syncWatcher)
@@ -379,25 +409,22 @@ namespace IndexExercise.Index.FileSystem
 			}
 		}
 
-		private void removeDirectory(DirectoryEntry<Metadata> directory)
+		private void raiseFileDeletedEvents(DirectoryEntry<Metadata> directory)
 		{
-			var current = directory;
+			foreach (var file in directory.Files.Values)
+				FileDeleted?.Invoke(this, file);
 
-			// recursive deletion of directory content written as loop
-			while (true)
-			{
-				while (current.Directories.Count > 0)
-					current = current.Directories.Values.First();
+			foreach (var subdirectory in directory.Directories.Values)
+				raiseFileDeletedEvents(subdirectory);
+		}
 
-				foreach (var file in current.Files.Values)
-					FileDeleted?.Invoke(this, file);
+		private void raiseFileMovedEvents(DirectoryEntry<Metadata> directory)
+		{
+			foreach (var file in directory.Files.Values)
+				FileMoved?.Invoke(this, file);
 
-				if (current.Parent == null)
-					break;
-
-				current.Parent.Directories.Remove(current.Name);
-				current = current.Parent;
-			}
+			foreach (var subdirectory in directory.Directories.Values)
+				raiseFileMovedEvents(subdirectory);
 		}
 
 
@@ -407,7 +434,7 @@ namespace IndexExercise.Index.FileSystem
 			switch (find.Type)
 			{
 				case EntryType.File:
-					if (!_filesFilter(find.Path))
+					if (!_fileNameFilter(find.Path))
 						return;
 					break;
 
@@ -484,14 +511,17 @@ namespace IndexExercise.Index.FileSystem
 				return;
 			}
 
+			processDeletedEntry(path);
+
 			_root.Move(existingEntry, path);
+			_movedEntriesQueue.TryEnqueue(existingEntry);
 		}
 
 		private void createEntry(EntryType type, string path)
 		{
 			long contentId = type == EntryType.File
 				? _sequentialId.New()
-				: _sequentialId.None;
+				: SequentialId.None;
 
 			var entry = _root.Add(type, path, new Metadata(contentId));
 
@@ -506,11 +536,11 @@ namespace IndexExercise.Index.FileSystem
 		{
 			_root.Remove(entry);
 
-			// no need to process entry creation which was further deleted
 			_createdEntriesQueue.TryRemove(entry);
 
 			// after removing from _createdEntriesQueue
-			// so that the entry never coexists in both _createdEntriesQueue and _deletedEntriesQueue
+			// so that the entry never coexists in both 
+			// _createdEntriesQueue and _deletedEntriesQueue
 			// such coexistence could lead to processing element creation after its deletion
 			_deletedEntriesQueue.TryEnqueue(entry);
 		}
@@ -537,18 +567,22 @@ namespace IndexExercise.Index.FileSystem
 		public event EventHandler<Change> ProcessingChange;
 		public event EventHandler<Entry<Metadata>> EnqueuedCreatedEntry;
 		public event EventHandler<Entry<Metadata>> EnqueuedDeletedEntry;
+		public event EventHandler<Entry<Metadata>> EnqueuedMovedEntry;
 		public event EventHandler<Entry<Metadata>> ProcessingCreatedEntry;
 		public event EventHandler<Entry<Metadata>> ProcessingDeletedEntry;
+		public event EventHandler<Entry<Metadata>> ProcessingMovedEntry;
 		public event EventHandler<Find> EntryFound;
 		public event EventHandler<EntryAccessError> EntryAccessError;
 
 		public event EventHandler<FileEntry<Metadata>> FileCreated;
 		public event EventHandler<FileEntry<Metadata>> FileDeleted;
+		public event EventHandler<FileEntry<Metadata>> FileMoved;
 
 		private readonly RootEntry<Metadata> _root;
 		private readonly FifoSet<Change> _changeQueue = new FifoSet<Change>();
 		private readonly FifoSet<Entry<Metadata>> _createdEntriesQueue = new FifoSet<Entry<Metadata>>();
 		private readonly FifoSet<Entry<Metadata>> _deletedEntriesQueue = new FifoSet<Entry<Metadata>>();
+		private readonly FifoSet<Entry<Metadata>> _movedEntriesQueue = new FifoSet<Entry<Metadata>>();
 
 		private readonly Watcher _watcher;
 		private readonly RootEntry<HashSet<WatchTarget>> _watchedLocations = new RootEntry<HashSet<WatchTarget>>(() => new HashSet<WatchTarget>());
@@ -556,8 +590,8 @@ namespace IndexExercise.Index.FileSystem
 		private readonly object _syncWatcher = new object();
 
 		private readonly SequentialId _sequentialId;
-		private readonly FilesFilter _filesFilter;
+		private readonly FileNameFilter _fileNameFilter;
 
-		public delegate bool FilesFilter(string fullFileName);
+		public delegate bool FileNameFilter(string fullFileName);
 	}
 }

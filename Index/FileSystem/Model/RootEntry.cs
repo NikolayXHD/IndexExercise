@@ -14,31 +14,7 @@ namespace IndexExercise.Index.FileSystem
 		public Entry<TData> GetEntry(string path)
 		{
 			lock (Sync)
-			{
-				var pathSegments = PathString.Split(path);
-				DirectoryEntry<TData> current = this;
-
-				for (int i = 0; i < pathSegments.Count - 1; i++)
-				{
-					if (!current.Directories.TryGetValue(pathSegments[i], out var subdirectory))
-						return null;
-
-					current = subdirectory;
-				}
-
-				string name = pathSegments[pathSegments.Count - 1];
-
-				if (current.Directories.TryGetValue(name, out var directory))
-					return directory;
-
-				if (current.Files.TryGetValue(name, out var file))
-					return file;
-
-				if (current.UnclassifiedEntries.TryGetValue(name, out var unclassifiedEntry))
-					return unclassifiedEntry;
-
-				return null;
-			}
+				return getEntry(path);
 		}
 
 		/// <summary>
@@ -94,6 +70,33 @@ namespace IndexExercise.Index.FileSystem
 
 
 
+		private Entry<TData> getEntry(string path)
+		{
+			var pathSegments = PathString.Split(path);
+			DirectoryEntry<TData> current = this;
+
+			for (int i = 0; i < pathSegments.Count - 1; i++)
+			{
+				if (!current.Directories.TryGetValue(pathSegments[i], out var subdirectory))
+					return null;
+
+				current = subdirectory;
+			}
+
+			string name = pathSegments[pathSegments.Count - 1];
+
+			if (current.Directories.TryGetValue(name, out var directory))
+				return directory;
+
+			if (current.Files.TryGetValue(name, out var file))
+				return file;
+
+			if (current.UnclassifiedEntries.TryGetValue(name, out var unclassifiedEntry))
+				return unclassifiedEntry;
+
+			return null;
+		}
+
 		private static void remove(Entry<TData> entry)
 		{
 			switch (entry)
@@ -148,9 +151,11 @@ namespace IndexExercise.Index.FileSystem
 				case DirectoryEntry<TData> directory:
 					parentDirectory.Directories.Add(directory.Name, directory);
 					break;
+				
 				case FileEntry<TData> file:
 					parentDirectory.Files.Add(file.Name, file);
 					break;
+
 				case UnclassifiedEntry<TData> unclassified:
 					parentDirectory.UnclassifiedEntries.Add(unclassified.Name, unclassified);
 					break;

@@ -22,7 +22,7 @@ namespace IndexExercise.Index.Test
 			var target = new WatchTarget(entryType, path ?? WorkingDirectory);
 
 			Watcher.Watch(target);
-			Log.Debug($"Watch {target}");
+			Log.Debug($"watcher watch {target}");
 		}
 
 		public Change AssertDetected(WatcherChangeTypes changeType, string path = null, string oldFullPath = null, bool allowIncorrectPath = false)

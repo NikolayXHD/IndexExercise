@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using IndexExercise.Index.Collections;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
@@ -11,144 +12,110 @@ namespace IndexExercise.Index.Lucene
 	/// <inheritdoc />
 	public class LuceneQueryBuilder : IQueryBuilder
 	{
-		public LuceneQueryBuilder(ILexerFactory lexerFactory, string contentFieldName) : this(
-			createMatchNoDocsQuery(),
-			createQueryParser(lexerFactory, contentFieldName),
-			contentFieldName,
-			errors: Enumerable.Empty<string>())
+		public LuceneQueryBuilder(ILexerFactory lexerFactory, string contentFieldName)
 		{
-		}
-
-		private LuceneQueryBuilder(Query query, QueryParser parser, string contentField, IEnumerable<string> errors)
-		{
-			Query = query;
-			_parser = parser;
-			_contentField = contentField;
-			SyntaxErrors = new List<string>(errors);
+			_parser = createQueryParser(lexerFactory, contentFieldName);
+			_contentField = contentFieldName;
 		}
 
 		/// <inheritdoc />
-		public IQueryBuilder Boolean(params (BoolOperator BooleanOperator, IQueryBuilder Subquery)[] subqueries)
+		public IQuery Boolean(IEnumerable<(BoolOperator Operator, IQuery Subquery)> clauses)
 		{
-			if (subqueries.Length == 0)
-				throw new ArgumentException($"{nameof(subqueries)} must have at least 1 element", nameof(subqueries));
-
-			var query = new BooleanQuery();
-			var syntaxErrors = Enumerable.Empty<string>();
+			var booleanQuery = new BooleanQuery();
+			var errors = Enumerable.Empty<string>();
+			var warnings = Enumerable.Empty<string>();
 
 			var orSubquery = new BooleanQuery();
 
-			foreach (var subquery in subqueries)
+			foreach (var clause in clauses)
 			{
-				var subqueryBuilder = (LuceneQueryBuilder) subquery.Subquery;
+				var subquery = (QueryWrapper) clause.Subquery;
 
-				if (subqueryBuilder.HasSyntaxErrors)
-					syntaxErrors = syntaxErrors.Concat(subqueryBuilder.SyntaxErrors);
+				errors = errors.Concat(subquery.Errors);
+				warnings = warnings.Concat(subquery.Warnings);
 
-				if (subqueryBuilder.Query == null)
+				if (subquery.LuceneQuery == null)
 					continue;
 
-				switch (subquery.BooleanOperator)
+				switch (clause.Operator)
 				{
 					case BoolOperator.Or:
-						orSubquery.Add(subqueryBuilder.Query, Occur.SHOULD);
+						orSubquery.Add(subquery.LuceneQuery, Occur.SHOULD);
 						break;
 					case BoolOperator.And:
-						query.Add(subqueryBuilder.Query, Occur.MUST);
+						booleanQuery.Add(subquery.LuceneQuery, Occur.MUST);
 						break;
 					case BoolOperator.Not:
-						query.Add(subqueryBuilder.Query, Occur.MUST_NOT);
+						booleanQuery.Add(subquery.LuceneQuery, Occur.MUST_NOT);
 						break;
 					default:
-						throw new NotSupportedException($"{subquery.BooleanOperator} is not supported");
+						throw new NotSupportedException($"{clause.Operator} is not supported");
 				}
 			}
 
 			if (orSubquery.Clauses.Count > 0)
-				query.Add(orSubquery, Occur.MUST);
+				booleanQuery.Add(orSubquery, Occur.MUST);
 
-			if (query.Clauses.Count == 0)
-				return createBuilder(syntaxErrors);
+			if (booleanQuery.Clauses.Count == 0)
+				return new QueryWrapper(null, warnings, errors);
 
-			return createBuilder(query, syntaxErrors);
+			if (booleanQuery.Clauses.All(_ => _.Occur == Occur.MUST_NOT))
+			{
+				warnings = warnings.Append(getNegativeClauseWarning(booleanQuery));
+				booleanQuery.Add(new MatchAllDocsQuery(), Occur.MUST);
+			}
+
+			return new QueryWrapper(booleanQuery, warnings, errors);
 		}
 
 		/// <inheritdoc />
-		public IQueryBuilder ValueQuery(string word)
+		public IQuery ValueQuery(string word)
 		{
 			var query = new TermQuery(new Term(_contentField, word));
-			return createBuilder(query);
+			return new QueryWrapper(query);
 		}
 
 		/// <inheritdoc />
-		public IQueryBuilder PhraseQuery(IEnumerable<string> phrase)
+		public IQuery PhraseQuery(IEnumerable<string> phrase)
 		{
 			var query = new PhraseQuery();
 
 			foreach (string word in phrase)
 				query.Add(new Term(_contentField, word));
 
-			return createBuilder(query);
+			return new QueryWrapper(query);
 		}
 
 		/// <inheritdoc />
-		public IQueryBuilder PrefixQuery(string prefix)
+		public IQuery PrefixQuery(string prefix)
 		{
 			var query = new PrefixQuery(new Term(_contentField, prefix));
-			return createBuilder(query);
+			return new QueryWrapper(query);
 		}
 
 		/// <inheritdoc />
-		public IQueryBuilder EngineSpecificQuery(string query)
+		public IQuery EngineSpecificQuery(string query)
 		{
 			try
 			{
 				lock (_parser)
 				{
 					var parsedQuery = _parser.Parse(query);
-					return createBuilder(parsedQuery);
+
+					var warnings = new List<string>();
+
+					fixNegativeClauses(parsedQuery, warnings);
+						
+					return new QueryWrapper(parsedQuery, warnings);
 				}
 			}
 			catch (ParseException ex)
 			{
-				return createBuilder(ex.Message);
+				return new QueryWrapper(null, errors: Unit.Sequence(ex.Message));
 			}
 		}
 
-		/// <inheritdoc />
-		public IQuery Build()
-		{
-			var warnings = new List<string>();
-			if (fixNegativeClauses(Query))
-				warnings.Add("Query contains purely negative boolean clauses. Search may require a full index scan.");
 
-			return new QueryWrapper(Query, SyntaxErrors, warnings);
-		}
-
-
-
-		private LuceneQueryBuilder createBuilder(Query query)
-		{
-			return new LuceneQueryBuilder(query, _parser, _contentField, Enumerable.Empty<string>());
-		}
-
-		private LuceneQueryBuilder createBuilder(string syntaxError)
-		{
-			// ReSharper disable once InconsistentlySynchronizedField
-			return new LuceneQueryBuilder(null, _parser, _contentField, Enumerable.Repeat(syntaxError, 1));
-		}
-
-		private LuceneQueryBuilder createBuilder(Query query, IEnumerable<string> syntaxErrors)
-		{
-			// ReSharper disable once InconsistentlySynchronizedField
-			return new LuceneQueryBuilder(query, _parser, _contentField, syntaxErrors);
-		}
-
-		private LuceneQueryBuilder createBuilder(IEnumerable<string> syntaxErrors)
-		{
-			// ReSharper disable once InconsistentlySynchronizedField
-			return new LuceneQueryBuilder(null, _parser, _contentField, syntaxErrors);
-		}
 
 		private static QueryParser createQueryParser(ILexerFactory lexerFactory, string contentFieldName)
 		{
@@ -157,45 +124,33 @@ namespace IndexExercise.Index.Lucene
 			return new QueryParser(LuceneVersion.LUCENE_48, contentFieldName, analyzer);
 		}
 
-		private static BooleanQuery createMatchNoDocsQuery()
+		private static void fixNegativeClauses(Query query, IList<string> warnings)
 		{
-			// A Boolean query without any clause returns no documents
-			return new BooleanQuery();
-		}
-
-		private static bool fixNegativeClauses(Query query)
-		{
-			bool queryFixed = false;
-
 			if (!(query is BooleanQuery boolean))
-			{
-				// ReSharper disable once ConditionIsAlwaysTrueOrFalse
-				return queryFixed;
-			}
-
+				return;
+			
 			bool existsPositive = false;
 			foreach (var clause in boolean.Clauses)
 			{
 				if (clause.Occur != Occur.MUST_NOT)
 					existsPositive = true;
 
-				queryFixed |= fixNegativeClauses(clause.Query);
+				fixNegativeClauses(clause.Query, warnings);
 			}
 
 			if (!existsPositive)
 			{
+				warnings.Add(getNegativeClauseWarning(query));
 				boolean.Add(new MatchAllDocsQuery(), Occur.MUST);
-				queryFixed = true;
 			}
-
-			return queryFixed;
 		}
 
+		private static string getNegativeClauseWarning(Query query)
+		{
+			return $"{NegativeClauseWarning}: {query}";
+		}
 
-
-		private bool HasSyntaxErrors => SyntaxErrors.Count > 0;
-		private IList<string> SyntaxErrors { get; }
-		private Query Query { get; }
+		private const string NegativeClauseWarning = "Negative clause may require a full index scan";
 
 		private readonly QueryParser _parser;
 		private readonly string _contentField;

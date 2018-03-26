@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using IndexExercise.Index.Collections;
 using IndexExercise.Index.Lucene;
 using NUnit.Framework;
 
@@ -19,7 +20,7 @@ namespace IndexExercise.Index.Test
 
 			_indexEngine.Update(contentId, content: "phrase to be searched");
 
-			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Enumerable.Repeat(contentId, 1)));
+			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
 
 			_indexEngine.Remove(contentId);
 
@@ -33,15 +34,15 @@ namespace IndexExercise.Index.Test
 
 			_indexEngine.Update(contentId, content: "original phrase");
 
-			Assert.That(_indexEngine.Search("original").ContentIds, Is.EquivalentTo(Enumerable.Repeat(contentId, 1)));
+			Assert.That(_indexEngine.Search("original").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
 			Assert.That(_indexEngine.Search("changed").ContentIds, Is.EquivalentTo(Enumerable.Empty<long>()));
-			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Enumerable.Repeat(contentId, 1)));
+			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
 
 			_indexEngine.Update(contentId, content: "changed phrase");
 
 			Assert.That(_indexEngine.Search("original").ContentIds, Is.EquivalentTo(Enumerable.Empty<long>()));
-			Assert.That(_indexEngine.Search("changed").ContentIds, Is.EquivalentTo(Enumerable.Repeat(contentId, 1)));
-			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Enumerable.Repeat(contentId, 1)));
+			Assert.That(_indexEngine.Search("changed").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
+			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
 		}
 
 		[Explicit("probabilistic")]
@@ -111,7 +112,7 @@ namespace IndexExercise.Index.Test
 				)
 				.ToList();
 
-			shuffle(parallelActions);
+			parallelActions.Shuffle();
 
 			Parallel.Invoke(parallelActions.ToArray());
 			return queries;
@@ -143,27 +144,12 @@ namespace IndexExercise.Index.Test
 			}
 		}
 
-		private void shuffle<T>(IList<T> list)
-		{
-			int n = list.Count;
-			while (n > 1)
-			{
-				n--;
-				int k = _random.Next(n + 1);
-				T value = list[k];
-				list[k] = list[n];
-				list[n] = value;
-			}
-		}
-
-
 		[SetUp]
 		public void Setup()
 		{
 			_util = new FileSystemUtility();
 			_indexEngine = new LuceneIndexEngine(Path.Combine(_util.WorkingDirectory, "lucene-index"));
 			_indexEngine.Initialize();
-			_random = new Random();
 		}
 
 		[TearDown]
@@ -175,6 +161,5 @@ namespace IndexExercise.Index.Test
 
 		private FileSystemUtility _util;
 		private LuceneIndexEngine _indexEngine;
-		private Random _random;
 	}
 }

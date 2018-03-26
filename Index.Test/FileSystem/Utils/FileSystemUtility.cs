@@ -11,7 +11,6 @@ namespace IndexExercise.Index.Test
 	{
 		public FileSystemUtility()
 		{
-			Log = LogManager.GetLogger(name: GetType().Name);
 			TempDirectory = CreateDirectory(parent: TestContext.CurrentContext.TestDirectory);
 			WorkingDirectory = CreateDirectory("working", parent: TempDirectory);
 		}
@@ -154,8 +153,9 @@ namespace IndexExercise.Index.Test
 
 
 		protected TimeSpan DelayDuration { get; } = TimeSpan.FromMilliseconds(100);
-		protected Logger Log { get; }
 		public string WorkingDirectory { get; }
 		public string TempDirectory { get; }
+
+		protected static readonly Logger Log = LogManager.GetCurrentClassLogger();
 	}
 }

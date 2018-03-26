@@ -1,4 +1,6 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
+using IndexExercise.Index.FileSystem;
 
 namespace IndexExercise.Index
 {
@@ -6,30 +8,33 @@ namespace IndexExercise.Index
 	{
 		public IndexingTask(
 			IndexingAction action,
-			long contentId,
-			CancellationToken queueCancellationToken,
-			long length = 0,
-			string path = null)
+			FileEntry<Metadata> fileEntry,
+			CancellationToken queueCancellationToken)
 		{
-			Path = path;
-			ContentId = contentId;
-			Length = length;
 			Action = action;
-			
-			_queueCancellationToken = queueCancellationToken;
+			FileEntry = fileEntry;
+
 			_taskCancellationSource = new CancellationTokenSource();
-			
+
 			_combinedCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(
 				_taskCancellationSource.Token,
-				_queueCancellationToken);
+				queueCancellationToken);
+
+			CreationTime = DateTime.UtcNow;
 		}
 
-		public IndexingTask CreateRepetitionTask()
+		public void BeginProcessing()
 		{
-			return new IndexingTask(Action, ContentId, _queueCancellationToken, Length, Path)
-			{
-				Attempts = Attempts + 1
-			};
+			Path = null;
+			FileAccessException = null;
+			HasToBeRepeated = false;
+			Attempts++;
+		}
+
+		public void EndProcessing()
+		{
+			if (Path != null && FileAccessException == null && !CancellationToken.IsCancellationRequested)
+				FileEntry.Data.IndexedTime = DateTime.UtcNow;
 		}
 
 		public void Cancel()
@@ -38,15 +43,17 @@ namespace IndexExercise.Index
 		}
 
 		public IndexingAction Action { get; }
-		public long ContentId { get; }
-		public long Length { get; }
-		public string Path { get; }
+
+		public FileEntry<Metadata> FileEntry { get; }
+		
+		public string Path { get; set; }
+		public string HardlinkPath { get; set; }
+		public Exception FileAccessException { get; set; }
 
 		public bool HasToBeRepeated { get; set; }
-		public int Attempts { get; private set; }
+		public int Attempts { get; set; }
+		public DateTime CreationTime { get; }
 
-		private readonly CancellationToken _queueCancellationToken;
-		
 		public CancellationToken CancellationToken => _combinedCancellationSource.Token;
 		private readonly CancellationTokenSource _combinedCancellationSource;
 		private readonly CancellationTokenSource _taskCancellationSource;

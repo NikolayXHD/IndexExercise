@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using IndexExercise.Index.Collections;
 
 namespace IndexExercise.Index
 {
@@ -21,7 +22,7 @@ namespace IndexExercise.Index
 		public static FileSearchResult Success(IEnumerable<string> fileNames) => new FileSearchResult
 		{
 			FileNames = fileNames,
-			SyntaxErrors = new string[0]
+			SyntaxErrors = Array.Empty<string>()
 		};
 
 		public IList<string> SyntaxErrors { get; private set; }

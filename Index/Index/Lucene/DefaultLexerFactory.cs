@@ -8,14 +8,6 @@ namespace IndexExercise.Index.Lucene
 	/// </summary>
 	public class DefaultLexerFactory : ILexerFactory
 	{
-		/// <summary>
-		/// Splits the text by words separated by non-word & non-digit & non-in-<see cref="AdditionalWordChars"/>.
-		/// Chinese and japanese chars are considered one word each.
-		/// </summary>
-		public DefaultLexerFactory()
-		{
-		}
-
 		public ILexer CreateLexer()
 		{
 			return new DefaultLexer
