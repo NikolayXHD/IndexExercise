@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.FileSystem;
 using IndexExercise.Index.Lucene;
@@ -16,7 +17,7 @@ namespace IndexExercise.Index.Test
 			_indexFacade = new IndexFacade(Watcher, Mirror, indexingTaskProcessor, indexEngine)
 			{
 				IdleDelay = TimeSpan.FromMilliseconds(10),
-				ThrottleDelay = TimeSpan.FromMilliseconds(100)
+				ThrottleDelay = TimeSpan.FromMilliseconds(200)
 			};
 
 			_indexFacade.Idle += indexFacadeIdle;
@@ -58,7 +59,21 @@ namespace IndexExercise.Index.Test
 
 		private static void endProcessingTask(object sender, IndexingTask task)
 		{
-			Log.Debug($"facade end processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path}");
+			var state = new StringBuilder();
+
+			if (task.FileAccessException != null)
+				state.Append("file_access_error ");
+			if (task.Path == null)
+				state.Append("entry_was_removed ");
+			if (task.CancellationToken.IsCancellationRequested)
+				state.Append("canceled ");
+			if (task.HasToBeRepeated)
+				 state.Append("has_to_be_repeated ");
+
+			if (state.Length == 0)
+				state.Append("completed ");
+
+			Log.Debug($"facade end processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path} resolution: {state}");
 		}
 
 		private static void indexFacadeIdle(object sender, TimeSpan delay)

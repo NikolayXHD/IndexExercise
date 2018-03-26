@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.Collections;
@@ -95,6 +96,10 @@ namespace IndexExercise.Index
 				processAddToIndexTask(indexingTask);
 				return;
 			}
+
+			var failedHardLink = _failedHardLinksQueue.TryDequeue();
+			if (failedHardLink != null)
+				processFailedHardLink(failedHardLink);
 
 			await IdleDelayTask();
 		}
@@ -192,6 +197,8 @@ namespace IndexExercise.Index
 				.DefaultIfEmpty(DateTime.MinValue)
 				.Max();
 
+			needToReindex |= indexedTime == DateTime.MinValue;
+
 			// if the moved file was indexed just moments ago we cannot be sure we indexed the right one.
 			// maybe we scanned its previous location and there was some other file
 			needToReindex |= DateTime.UtcNow - indexedTime < AllowablePathSynchronizationLag;
@@ -219,6 +226,9 @@ namespace IndexExercise.Index
 
 			if (indexingTask.HasToBeRepeated)
 				_delayedTasksQueue.TryEnqueue(indexingTask.FileEntry, indexingTask);
+
+			if (indexingTask.FileAccessException != null && indexingTask.HardlinkPath != null)
+				_failedHardLinksQueue.TryEnqueue(indexingTask.HardlinkPath);
 		}
 
 		private void processRemoveFromIndexTask(FileEntry<Metadata> fileToRemove)
@@ -234,6 +244,22 @@ namespace IndexExercise.Index
 			EndProcessingTask?.Invoke(this, indexingTask);
 		}
 
+		private void processFailedHardLink(string hardLinkPath)
+		{
+			var fileInfo = new FileInfo(hardLinkPath);
+
+			if (!fileInfo.Exists)
+				return;
+
+			try
+			{
+				fileInfo.Delete();
+			}
+			catch (Exception ex) when (ex is IOException || ex is SecurityException || ex is UnauthorizedAccessException)
+			{
+				_failedHardLinksQueue.TryEnqueue(hardLinkPath);
+			}
+		}
 
 
 		public IQueryBuilder QueryBuilder => _indexEngine.QueryBuilder;
@@ -296,6 +322,9 @@ namespace IndexExercise.Index
 
 		private readonly FifoSet<FileEntry<Metadata>> _removingFromIndexQueue =
 			new FifoSet<FileEntry<Metadata>>();
+
+		private readonly FifoSet<string> _failedHardLinksQueue = 
+			new FifoSet<string>(PathString.Comparer);
 
 		private readonly SetGrouping<long, FileEntry<Metadata>> _filesByContentId =
 			new SetGrouping<long, FileEntry<Metadata>>();

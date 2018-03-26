@@ -17,10 +17,12 @@ namespace IndexExercise.Index.Collections
 		/// <see cref="TryRemove"/> of arbitrary element is supported while the queue would only support
 		/// removing the first <see cref="TValue"/>.
 		/// </summary>
-		public FifoSet()
+		public FifoSet(IEqualityComparer<TValue> comparer = null)
 		{
 			_values = new SortedSet<TValue>(Comparer<TValue>.Create((el1, el2) =>
 				Comparer<long>.Default.Compare(_order[el1], _order[el2])));
+
+			_order = new Dictionary<TValue, long>(comparer ?? EqualityComparer<TValue>.Default);
 		}
 
 		public bool TryEnqueue(TValue element)
@@ -74,7 +76,7 @@ namespace IndexExercise.Index.Collections
 		private long _counter;
 
 		private readonly SortedSet<TValue> _values;
-		private readonly Dictionary<TValue, long> _order = new Dictionary<TValue, long>();
+		private readonly Dictionary<TValue, long> _order;
 		private readonly object _sync = new object();
 	}
 }

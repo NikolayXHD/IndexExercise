@@ -26,6 +26,7 @@ namespace IndexExercise.Index
 		public void BeginProcessing()
 		{
 			Path = null;
+			HardlinkPath = null;
 			FileAccessException = null;
 			HasToBeRepeated = false;
 			Attempts++;
