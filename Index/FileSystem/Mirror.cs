@@ -236,6 +236,16 @@ namespace IndexExercise.Index.FileSystem
 
 				case DirectoryEntry<Metadata> directory:
 					raiseFileMovedEvents(directory);
+					
+					// We cannot assume the directory was completely scanned when processing _createdEntriesQueue
+					// it might have been moved between creation was detected and scan attempt happened.
+					//
+					// Ideally we should only rescan the directory if it was scanned moments ago
+					// otherwise we know after the directory was detected and scanned nothing happened to it
+					// for a reasonably long amount of time, so we are sure it was scanned correctly.
+					//
+					// IndexFacade follows the same approach when handling FileRenamed
+					scanDirectory(directory);
 					break;
 
 				case UnclassifiedEntry<Metadata> _:
