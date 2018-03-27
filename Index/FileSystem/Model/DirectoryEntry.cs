@@ -23,55 +23,68 @@ namespace IndexExercise.Index.FileSystem
 			new Dictionary<string, UnclassifiedEntry<TData>>(PathString.Comparer);
 
 
-		public string ToString(Action<StringBuilder, TData> printData)
+		public string ToString(Action<StringBuilder, Entry<TData>> onAppend)
 		{
 			int nesting = this is RootEntry<TData> ? -1 : 0;
 
 			var result = new StringBuilder();
-			write(this, result, nesting, printData);
+			write(this, result, nesting, onAppend);
 			return result.ToString();
 		}
 
 		public override string ToString()
 		{
-			return ToString((sb, data) => sb.Append(data.ToString()));
+			return ToString((sb, entry) => sb.Append(" ").Append(entry.Data.ToString()));
 		}
 
-		private static void write(FileEntry<TData> entry, StringBuilder builder, int nesting, Action<StringBuilder, TData> printData)
+		private static void write(
+			FileEntry<TData> entry,
+			StringBuilder builder,
+			int nesting,
+			Action<StringBuilder, Entry<TData>> onAppend)
 		{
 			builder.Append('\t', repeatCount: nesting).Append(entry.Name);
-
-			if (printData != null)
-			{
-				builder.Append(" ");
-				printData(builder, entry.Data);
-			}
-			
+			onAppend?.Invoke(builder, entry);
 			builder.AppendLine();
 		}
 
-		private static void write(UnclassifiedEntry<TData> entry, StringBuilder builder, int nesting)
+		private static void write(
+			UnclassifiedEntry<TData> entry,
+			StringBuilder builder,
+			int nesting,
+			Action<StringBuilder, Entry<TData>> onAppend)
 		{
-			builder.Append('\t', repeatCount: nesting).Append(entry.Name).AppendLine("?");
+			builder.Append('\t', repeatCount: nesting).Append(entry.Name).Append("?");
+			onAppend?.Invoke(builder, entry);
+			builder.AppendLine();
 		}
 
-		private static void write(DirectoryEntry<TData> entry, StringBuilder builder, int nesting, Action<StringBuilder, TData> printData)
+		private static void write(
+			DirectoryEntry<TData> entry,
+			StringBuilder builder,
+			int nesting,
+			Action<StringBuilder, Entry<TData>> onAppend)
 		{
 			if (nesting >= 0)
+			{
 				builder
 					.Append('\t', repeatCount: nesting).Append(entry.Name)
-					.AppendLine($"/ {entry.Directories.Count}+{entry.Files.Count}+{entry.UnclassifiedEntries.Count}");
+					.Append("/");
+
+				onAppend?.Invoke(builder, entry);
+				builder.AppendLine();
+			}
 
 			nesting++;
 
 			foreach (var file in entry.Files.Values.OrderBy(f => f.Name, PathString.Comparer))
-				write(file, builder, nesting, printData);
+				write(file, builder, nesting, onAppend);
 
 			foreach (var unclassified in entry.UnclassifiedEntries.Values.OrderBy(u => u.Name, PathString.Comparer))
-				write(unclassified, builder, nesting);
+				write(unclassified, builder, nesting, onAppend);
 
 			foreach (var directory in entry.Directories.Values.OrderBy(u => u.Name, PathString.Comparer))
-				write(directory, builder, nesting, printData);
+				write(directory, builder, nesting, onAppend);
 		}
 	}
 }

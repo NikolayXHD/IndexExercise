@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<configuration>
+	<WatchFile Mode="Auto" />
+
+	<Index
+		FileNameRegex="\.(txt|md)$"
+		AdditionalWordChars="@#$%'"
+		MaxWordLength ="256"
+		CaseSensitive="False"
+		IndexDirectory="lucene-index"
+		MaxFileLength="67108864"
+		MaxReadAttempts="3">
+
+		<Directory Path="content\subdirectory" />
+		<File Path="content\lazy fox.txt" />
+
+	</Index>
+
+</configuration>

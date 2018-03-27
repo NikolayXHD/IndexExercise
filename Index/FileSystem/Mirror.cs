@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security;
+using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.Collections;
 
@@ -113,7 +114,24 @@ namespace IndexExercise.Index.FileSystem
 			}
 		}
 
-		public Entry<Metadata> Find(string path) => _root.GetEntry(path);
+		public Entry<Metadata> GetEntry(string path) => _root.GetEntry(path);
+
+		public string PrintDirectoryStructure(Action<StringBuilder, Entry<Metadata>> onAppend)
+		{
+			var directoryStructure = _root.ToString((sb, entry) =>
+			{
+				if (entry.Data.ScanStarted)
+					sb.Append($" [{entry.Data.GetScanStatus()}]");
+
+				var watchedTarget = _watchedLocations.GetEntry(entry.GetPath());
+				if (watchedTarget?.Data.Count > 0)
+					sb.Append(" [watched]");
+				
+				onAppend(sb, entry);
+			});
+
+			return directoryStructure;
+		}
 
 
 

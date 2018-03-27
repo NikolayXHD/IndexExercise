@@ -56,7 +56,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(fileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -107,12 +107,12 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var originalContentSearchResult = _util.Search($"content_{j:D2}_original*");
-				Assert.That(originalContentSearchResult.FileNames.ToArray(),
+				Assert.That(originalContentSearchResult.FileNames,
 					Is.EquivalentTo(Enumerable.Empty<string>()).Using((IComparer) PathString.Comparer));
 
 				// because each update cycle original content was rewritten by modified
 				var modifiedContentSearchResult = _util.Search($"content_{j:D2}_modified*");
-				Assert.That(modifiedContentSearchResult.FileNames.ToArray(),
+				Assert.That(modifiedContentSearchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(fileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -170,7 +170,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(renamedFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -232,7 +232,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(targetFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -298,7 +298,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(movedFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -352,7 +352,7 @@ namespace IndexExercise.Index.Test
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
 
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(movedFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -425,7 +425,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(movedFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}
@@ -482,7 +482,7 @@ namespace IndexExercise.Index.Test
 			{
 				// prefix query
 				var searchResult = _util.Search($"content_{j:D2}*");
-				Assert.That(searchResult.FileNames.ToArray(),
+				Assert.That(searchResult.FileNames,
 					Is.EquivalentTo(Unit.Sequence(movedFileNames[j])).Using((IComparer) PathString.Comparer));
 			}
 		}

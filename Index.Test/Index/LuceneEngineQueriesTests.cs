@@ -199,7 +199,16 @@ namespace IndexExercise.Index.Test
 			Assert.That(_indexEngine.Search(query).ContentIds, Is.EquivalentTo(new[] { 2L, 3L }));
 		}
 
+		[Test]
+		public void Regular_expression_query_returns_expected_result()
+		{
+			_indexEngine.Update(1L, content: "first one unit");
+			_indexEngine.Update(2L, content: "second two pair");
 
+			Assert.That(_indexEngine.Search("/f?irst/").ContentIds, Is.EquivalentTo(new[] { 1L }));
+			Assert.That(_indexEngine.Search("/pa.+/").ContentIds, Is.EquivalentTo(new[] { 2L }));
+			Assert.That(_indexEngine.Search("/.irst|p[ao]ir/").ContentIds, Is.EquivalentTo(new[] { 1L, 2L }));
+		}
 
 		[SetUp]
 		public void Setup()

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using IndexExercise.Index.Collections;
 using Lucene.Net.Search;
 
 namespace IndexExercise.Index.Lucene

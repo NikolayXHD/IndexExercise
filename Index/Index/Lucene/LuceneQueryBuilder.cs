@@ -121,7 +121,10 @@ namespace IndexExercise.Index.Lucene
 		{
 			var lexer = lexerFactory.CreateLexer();
 			var analyzer = new GenericAnalyzer(lexer);
-			return new QueryParser(LuceneVersion.LUCENE_48, contentFieldName, analyzer);
+			return new QueryParser(LuceneVersion.LUCENE_48, contentFieldName, analyzer)
+			{
+				AllowLeadingWildcard = true
+			};
 		}
 
 		private static void fixNegativeClauses(Query query, IList<string> warnings)

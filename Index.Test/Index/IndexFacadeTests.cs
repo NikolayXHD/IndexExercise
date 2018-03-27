@@ -23,7 +23,7 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("textual").FileNames.ToArray(),
+			Assert.That(_util.Search("textual").FileNames,
 				Is.EquivalentTo(Unit.Sequence(fileName)).Using((IComparer) PathString.Comparer));
 		}
 
@@ -39,10 +39,10 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("original").FileNames.ToArray(),
+			Assert.That(_util.Search("original").FileNames,
 				Is.EquivalentTo(Unit.Sequence(fileName)).Using((IComparer) PathString.Comparer));
 
-			Assert.That(_util.Search("updated").FileNames.ToArray(),
+			Assert.That(_util.Search("updated").FileNames,
 				Is.EquivalentTo(Enumerable.Empty<string>()).Using((IComparer) PathString.Comparer));
 
 			File.WriteAllText(fileName, "updated content");
@@ -50,10 +50,10 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("original").FileNames.ToArray(),
+			Assert.That(_util.Search("original").FileNames,
 				Is.EquivalentTo(Enumerable.Empty<string>()).Using((IComparer) PathString.Comparer));
 
-			Assert.That(_util.Search("updated").FileNames.ToArray(),
+			Assert.That(_util.Search("updated").FileNames,
 				Is.EquivalentTo(Unit.Sequence(fileName)).Using((IComparer) PathString.Comparer));
 		}
 
@@ -69,7 +69,7 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("textual").FileNames.ToArray(),
+			Assert.That(_util.Search("textual").FileNames,
 				Is.EquivalentTo(Unit.Sequence(fileName)).Using((IComparer) PathString.Comparer));
 
 			var renamedFileName = _util.GetFileName("renamed", parent: watchedDirectory);
@@ -78,7 +78,7 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("textual").FileNames.ToArray(),
+			Assert.That(_util.Search("textual").FileNames,
 				Is.EquivalentTo(Unit.Sequence(renamedFileName)).Using((IComparer) PathString.Comparer));
 		}
 
@@ -94,7 +94,7 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("textual").FileNames.ToArray(),
+			Assert.That(_util.Search("textual").FileNames,
 				Is.EquivalentTo(Unit.Sequence(fileName)).Using((IComparer) PathString.Comparer));
 
 			_util.DeleteFile(fileName);
@@ -102,7 +102,7 @@ namespace IndexExercise.Index.Test
 			await _util.ThrottleDelay();
 			await _util.SmallDelay();
 
-			Assert.That(_util.Search("textual").FileNames.ToArray(),
+			Assert.That(_util.Search("textual").FileNames,
 				Is.EquivalentTo(Enumerable.Empty<string>()).Using((IComparer) PathString.Comparer));
 		}
 

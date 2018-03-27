@@ -19,23 +19,65 @@ namespace IndexExercise.Index
 		/// <summary>
 		/// Maintains an up-to-date index of content of specified files and directories
 		/// </summary>
+		/// <param name="fileNameFilter">A filtering callback to determine wich files need to be indexed.
+		///   By default all files are indexed.</param>
+		/// <param name="additionalWordChars">Additional non-word-separator characters for <see cref="ILexer"/></param>
+		/// <param name="maxWordLength">Maximum word length to be returned by <see cref="ILexer"/></param>
+		/// <param name="caseSensitive">Whether index search is case sensitive</param>
 		/// <param name="indexDirectory">A directory to store index files</param>
+		/// <param name="maxFileLength">Maximum length of indexed file</param>
+		/// <param name="maxReadAttempts">Maximum read attempts when file system denies access to the file</param>
 		/// <param name="lexerFactory">Creates instances of <see cref="ILexer"/> to parse text into a 
 		/// sequence of <see cref="IToken"/></param>
-		/// <param name="fileNameFilter">A filtering callback to determine wich files need to be indexed.
-		/// By default all files are indexed.</param>
 		/// <param name="encodingDetector">Provides encoding detection functionality. By default 
-		/// <see cref="Encoding.UTF8"/>is assumed.</param>
+		///   <see cref="Encoding.UTF8"/>is assumed.</param>
 		public static IndexFacade Create(
-			string indexDirectory = null,
-			ILexerFactory lexerFactory = null,
 			Mirror.FileNameFilter fileNameFilter = null,
+			IEnumerable<char> additionalWordChars = null,
+			int? maxWordLength = null,
+			bool? caseSensitive = null,
+			string indexDirectory = null,
+			long? maxFileLength = null,
+			int? maxReadAttempts = null,
+			ILexerFactory lexerFactory = null,
 			Func<FileInfo, Encoding> encodingDetector = null)
 		{
+			if (additionalWordChars != null && lexerFactory != null)
+				throw new ArgumentException($"setting both {nameof(additionalWordChars)} and {nameof(lexerFactory)} is not supported");
+
+			if (maxWordLength.HasValue && lexerFactory != null)
+				throw new ArgumentException($"setting both {nameof(maxWordLength)} and {nameof(lexerFactory)} is not supported");
+
+			if (caseSensitive.HasValue && lexerFactory != null)
+				throw new ArgumentException($"setting both {nameof(caseSensitive)} and {nameof(lexerFactory)} is not supported");
+
+			DefaultLexerFactory defaultLexerFactory = null;
+
+			if (additionalWordChars != null || maxWordLength.HasValue || caseSensitive.HasValue)
+			{
+				defaultLexerFactory = new DefaultLexerFactory();
+				lexerFactory = defaultLexerFactory;
+			}
+
+			if (additionalWordChars != null)
+				defaultLexerFactory.AdditionalWordChars.UnionWith(additionalWordChars);
+
+			if (maxWordLength.HasValue)
+				defaultLexerFactory.MaxWordLength = maxWordLength.Value;
+
+			if (caseSensitive.HasValue)
+				defaultLexerFactory.IsPreservingCase = caseSensitive.Value;
+
 			var indexEngine = new LuceneIndexEngine(indexDirectory, lexerFactory);
 			var watcher = new Watcher();
 			var mirror = new Mirror(watcher, new SequentialId(), fileNameFilter);
 			var taskProcessor = new IndexingTaskProcessor(indexEngine, encodingDetector);
+
+			if (maxFileLength.HasValue)
+				taskProcessor.MaxFileLength = maxFileLength.Value;
+
+			if (maxReadAttempts.HasValue)
+				taskProcessor.MaxReadAttempts = maxReadAttempts.Value;
 
 			return new IndexFacade(watcher, mirror, taskProcessor, indexEngine);
 		}
@@ -43,7 +85,11 @@ namespace IndexExercise.Index
 		/// <summary>
 		/// Maintains an up-to-date index of content of specified files and directories
 		/// </summary>
-		public IndexFacade(Watcher watcher, Mirror mirror, IndexingTaskProcessor indexingTaskProcessor, IIndexEngine indexEngine)
+		public IndexFacade(
+			Watcher watcher,
+			Mirror mirror,
+			IndexingTaskProcessor indexingTaskProcessor,
+			IIndexEngine indexEngine)
 		{
 			_watcher = watcher;
 			_mirror = mirror;
@@ -121,15 +167,30 @@ namespace IndexExercise.Index
 			return FileSearchResult.Success(fileNames);
 		}
 
+		public string PrintDirectoryStructure(Action<StringBuilder, Entry<Metadata>> onAppend) => _mirror.PrintDirectoryStructure(onAppend);
 
 
-		private void fileCreatead(object sender, FileEntry<Metadata> file) => addDelayedTask(file);
 
-		private void fileDeleted(object sender, FileEntry<Metadata> file) => remove(file);
+		private void fileCreatead(object sender, FileEntry<Metadata> file)
+		{
+			FileCreated?.Invoke(this, file);
+			addDelayedTask(file);
+		}
 
-		private void fileMoved(object sender, FileEntry<Metadata> file) => move(file);
+		private void fileDeleted(object sender, FileEntry<Metadata> file)
+		{
+			FileDeleted?.Invoke(this, file);
+			remove(file);
+		}
 
-		private void fileAccessError(object sender, EntryAccessError accessError) => EntryAccessError?.Invoke(this, accessError);
+		private void fileMoved(object sender, FileEntry<Metadata> file)
+		{
+			FileMoved?.Invoke(this, file);
+			move(file);
+		}
+
+		private void fileAccessError(object sender, EntryAccessError accessError) =>
+			FileSystemDeniedAccess?.Invoke(this, accessError);
 
 		private void addDelayedTask(FileEntry<Metadata> fileEntry)
 		{
@@ -228,13 +289,13 @@ namespace IndexExercise.Index
 
 		private void processAddToIndexTask(IndexingTask indexingTask)
 		{
-			BeginProcessingTask?.Invoke(this, indexingTask);
+			ProcessingTaskStarted?.Invoke(this, indexingTask);
 
 			_currentTask = indexingTask;
 			_indexingTaskProcessor.ProcessTask(indexingTask);
 			_currentTask = null;
 
-			EndProcessingTask?.Invoke(this, indexingTask);
+			ProcessingTaskFinished?.Invoke(this, indexingTask);
 
 			if (indexingTask.HasToBeRepeated)
 				_delayedTasksQueue.TryEnqueue(indexingTask.FileEntry, indexingTask);
@@ -247,13 +308,13 @@ namespace IndexExercise.Index
 		{
 			var indexingTask = new IndexingTask(IndexingAction.RemoveContent, fileToRemove, CancellationToken);
 
-			BeginProcessingTask?.Invoke(this, indexingTask);
+			ProcessingTaskStarted?.Invoke(this, indexingTask);
 
 			_currentTask = indexingTask;
 			_indexingTaskProcessor.ProcessTask(indexingTask);
 			_currentTask = null;
 
-			EndProcessingTask?.Invoke(this, indexingTask);
+			ProcessingTaskFinished?.Invoke(this, indexingTask);
 		}
 
 		private void processFailedHardLink(string hardLinkPath)
@@ -276,15 +337,19 @@ namespace IndexExercise.Index
 
 		public IQueryBuilder QueryBuilder => _indexEngine.QueryBuilder;
 
-		public event EventHandler<EntryAccessError> EntryAccessError;
-		public event EventHandler<IndexingTask> BeginProcessingTask;
-		public event EventHandler<IndexingTask> EndProcessingTask;
+		public event EventHandler<EntryAccessError> FileSystemDeniedAccess;
+		public event EventHandler<IndexingTask> ProcessingTaskStarted;
+		public event EventHandler<IndexingTask> ProcessingTaskFinished;
+		public event EventHandler<FileEntry<Metadata>> FileCreated;
+		public event EventHandler<FileEntry<Metadata>> FileDeleted;
+		public event EventHandler<FileEntry<Metadata>> FileMoved;
+
 
 		/// <summary>
 		/// A delay between changed file content is detected and indexing task is enqueued.
 		/// Helps avoid some indexing attempts interrupted due to a subsequent change.
 		/// 
-		/// Should be greater or equal than <see cref="Mirror.AllowablePathSynchronizationLag"/>
+		/// Should be greater or equal than <see cref="FileSystem.Mirror.AllowablePathSynchronizationLag"/>
 		/// </summary>
 		public TimeSpan ThrottleDelay
 		{
@@ -302,8 +367,9 @@ namespace IndexExercise.Index
 
 		private IndexingTask _currentTask;
 
-		private static Watcher _watcher;
 		private readonly Mirror _mirror;
+
+		private static Watcher _watcher;
 		private readonly IndexingTaskProcessor _indexingTaskProcessor;
 		private readonly IIndexEngine _indexEngine;
 

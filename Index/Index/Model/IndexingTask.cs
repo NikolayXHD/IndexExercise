@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Threading;
 using IndexExercise.Index.FileSystem;
 
@@ -57,6 +58,25 @@ namespace IndexExercise.Index
 		public int Attempts { get; set; }
 
 		public TimeSpan ElapsedSinceCreation => DateTime.UtcNow - _creationTime;
+
+		public string GetState()
+		{
+			var state = new StringBuilder();
+
+			if (FileAccessException != null)
+				state.Append("file access error ");
+			if (Path == null)
+				state.Append("entry was removed ");
+			if (CancellationToken.IsCancellationRequested)
+				state.Append("canceled ");
+			if (HasToBeRepeated)
+				state.Append("has to be repeated ");
+
+			if (state.Length == 0)
+				state.Append("completed ");
+
+			return state.ToString().TrimEnd();
+		}
 
 		public CancellationToken CancellationToken => _combinedCancellationSource.Token;
 		private readonly CancellationTokenSource _combinedCancellationSource;

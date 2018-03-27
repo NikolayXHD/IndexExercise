@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Index", "Index\Index.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Index.Test", "Index.Test\Index.Test.csproj", "{BA96BEAA-4553-4D91-950C-793543A55780}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Index.Demo", "Index.Demo\Index.Demo.csproj", "{C226B111-9C33-4E3B-A61D-ABF67B151547}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EditedTokenLocator", "EditedTokenLocator\EditedTokenLocator.csproj", "{482239D1-673C-4181-A2DD-F9E5B1A2FD9B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{BA96BEAA-4553-4D91-950C-793543A55780}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BA96BEAA-4553-4D91-950C-793543A55780}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA96BEAA-4553-4D91-950C-793543A55780}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C226B111-9C33-4E3B-A61D-ABF67B151547}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C226B111-9C33-4E3B-A61D-ABF67B151547}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C226B111-9C33-4E3B-A61D-ABF67B151547}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C226B111-9C33-4E3B-A61D-ABF67B151547}.Release|Any CPU.Build.0 = Release|Any CPU
+		{482239D1-673C-4181-A2DD-F9E5B1A2FD9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{482239D1-673C-4181-A2DD-F9E5B1A2FD9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{482239D1-673C-4181-A2DD-F9E5B1A2FD9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{482239D1-673C-4181-A2DD-F9E5B1A2FD9B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

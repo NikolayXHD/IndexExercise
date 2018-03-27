@@ -29,7 +29,7 @@ namespace IndexExercise.Index.Test
 
 			Mirror.Idle += mirrorIdle;
 			Mirror.EntryAccessError += entryAccessError;
-			Mirror.BackgorundLoopFailed += backgroundLoopFailed;
+			Mirror.BackgroundLoopFailed += backgroundLoopFailed;
 
 			Mirror.FileCreated += fileCreatedNotification;
 			Mirror.FileDeleted += fileDeletedNotification;
@@ -73,18 +73,27 @@ namespace IndexExercise.Index.Test
 		{
 			var expectedStructure = string.Join(Environment.NewLine, expectedStructureLines) + Environment.NewLine;
 			var absolutePath = Path.Combine(WorkingDirectory, directoryName);
-			var entry = Mirror.Find(absolutePath);
+			var entry = Mirror.GetEntry(absolutePath);
 
 			Assert.That(entry, Is.Not.Null);
 			Assert.That(entry, Is.InstanceOf<DirectoryEntry<Metadata>>());
 
 			var directory = (DirectoryEntry<Metadata>) entry;
 
-			Action<StringBuilder, Metadata> printData = null;
-			if (compareData)
-				printData = (sb, data) => sb.Append("#").Append(data.ContentId);
+			var actualStructure = directory.ToString((sb, en) =>
+			{
+				switch (en)
+				{
+					case FileEntry<Metadata> fileEntr:
+						if (compareData)
+							sb.Append($" #{fileEntr.Data.ContentId}");
+						break;
 
-			var actualStructure = directory.ToString(printData);
+					case DirectoryEntry<Metadata> dirEntr:
+						sb.Append($" {dirEntr.Directories.Count}+{dirEntr.Files.Count}+{dirEntr.UnclassifiedEntries.Count}");
+						break;
+				}
+			});
 
 			if (PathString.Comparer.Equals(actualStructure, expectedStructure))
 			{
@@ -103,13 +112,22 @@ namespace IndexExercise.Index.Test
 
 		public void LogDirectoryStructure()
 		{
-			var entry = Mirror.Find(WorkingDirectory);
+			var entry = Mirror.GetEntry(WorkingDirectory);
 			var directory = (DirectoryEntry<Metadata>) entry;
 
-			var actualStructure = directory.ToString((sb, data) =>
-			{
-				sb.Append($"#{data.ContentId} {data.GetScanStatus()}");
-			});
+			var actualStructure = directory.ToString(
+				(sb, data) =>
+				{
+					switch (entry.Type)
+					{
+						case EntryType.File:
+							sb.Append($" #{entry.Data.ContentId} {entry.Data.GetScanStatus()}");
+							break;
+						case EntryType.Directory:
+							sb.Append($" {entry.Data.GetScanStatus()}");
+							break;
+					}
+				});
 
 			Log.Debug(actualStructure);
 		}

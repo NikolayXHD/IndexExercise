@@ -192,7 +192,7 @@ namespace IndexExercise.Index.Test
 			_util.DeleteDirectory(directoryName);
 			await _util.SmallDelay();
 
-			Assert.That(_util.Mirror.Find(directoryName), Is.Null);
+			Assert.That(_util.Mirror.GetEntry(directoryName), Is.Null);
 		}
 
 		[Test]
@@ -400,12 +400,12 @@ namespace IndexExercise.Index.Test
 			_util.Watch(EntryType.Directory, root);
 			await _util.SmallDelay();
 
-			Assert.That(_util.Mirror.Find(root), Is.Not.Null);
+			Assert.That(_util.Mirror.GetEntry(root), Is.Not.Null);
 
 			_util.DeleteDirectory(root);
 			await _util.SmallDelay();
 
-			Assert.That(_util.Mirror.Find(root), Is.Null);
+			Assert.That(_util.Mirror.GetEntry(root), Is.Null);
 		}
 
 		[Test]
@@ -417,13 +417,13 @@ namespace IndexExercise.Index.Test
 			_util.Watch(EntryType.Directory, directoryName);
 			await _util.SmallDelay();
 
-			Assert.That(_util.Mirror.Find(directoryName), Is.Not.Null);
+			Assert.That(_util.Mirror.GetEntry(directoryName), Is.Not.Null);
 
 			string renamedDirectoryName = _util.GetFileName();
 			_util.MoveDirectory(directoryName, renamedDirectoryName);
 			await _util.SmallDelay();
 
-			Assert.That(_util.Mirror.Find(directoryName), Is.Null);
+			Assert.That(_util.Mirror.GetEntry(directoryName), Is.Null);
 		}
 
 

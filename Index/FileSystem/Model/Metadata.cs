@@ -54,12 +54,29 @@ namespace IndexExercise.Index.FileSystem
 		public string GetScanStatus()
 		{
 			if (ScanFinished)
-				return $"scan finished {(int) ElapsedSinceScanFinished.TotalMilliseconds} ms ago";
+				return $"{toString(ElapsedSinceScanFinished)} ago";
 
 			if (ScanStarted)
-				return $"scan started {(int) ElapsedSinceScanStarted.TotalMilliseconds} ms ago";
+				return $"scanning {toString(ElapsedSinceScanStarted)}";
 
 			return "not scanned";
+		}
+
+		private static string toString(TimeSpan timeSpan)
+		{
+			if (timeSpan.TotalDays > 2)
+				return $"{(int) timeSpan.TotalDays}d";
+
+			if (timeSpan.TotalHours > 2)
+				return $"{(int) timeSpan.TotalHours}h";
+
+			if (timeSpan.TotalMinutes > 2)
+				return $"{(int) timeSpan.TotalMinutes}m";
+
+			if (timeSpan.TotalSeconds > 2)
+				return $"{(int) timeSpan.TotalSeconds}s";
+
+			return $"{(int) timeSpan.TotalMilliseconds}ms";
 		}
 
 		public override string ToString()

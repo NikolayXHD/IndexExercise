@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text;
 using System.Threading.Tasks;
 using IndexExercise.Index.FileSystem;
 using IndexExercise.Index.Lucene;
@@ -21,8 +20,8 @@ namespace IndexExercise.Index.Test
 			};
 
 			_indexFacade.Idle += indexFacadeIdle;
-			_indexFacade.BeginProcessingTask += beginProcessingTask;
-			_indexFacade.EndProcessingTask += endProcessingTask;
+			_indexFacade.ProcessingTaskStarted += processingTaskStarted;
+			_indexFacade.ProcessingTaskFinished += processingTaskFinished;
 
 			indexingTaskProcessor.FileOpened += indexingTaskProcessorFileOpened;
 		}
@@ -52,28 +51,14 @@ namespace IndexExercise.Index.Test
 			base.Dispose();
 		}
 
-		private static void beginProcessingTask(object sender, IndexingTask task)
+		private static void processingTaskStarted(object sender, IndexingTask task)
 		{
 			Log.Debug($"facade begin processing {task.Action} #{task.ContentId} length:{task.FileLength}b attempt:{task.Attempts} {task.Path}");
 		}
 
-		private static void endProcessingTask(object sender, IndexingTask task)
+		private static void processingTaskFinished(object sender, IndexingTask task)
 		{
-			var state = new StringBuilder();
-
-			if (task.FileAccessException != null)
-				state.Append("file_access_error ");
-			if (task.Path == null)
-				state.Append("entry_was_removed ");
-			if (task.CancellationToken.IsCancellationRequested)
-				state.Append("canceled ");
-			if (task.HasToBeRepeated)
-				 state.Append("has_to_be_repeated ");
-
-			if (state.Length == 0)
-				state.Append("completed ");
-
-			Log.Debug($"facade end processing {task.Action} #{task.ContentId} length:{task.FileLength}b attempt:{task.Attempts} {task.Path} resolution: {state}");
+			Log.Debug($"facade end processing {task.Action} #{task.ContentId} length:{task.FileLength}b attempt:{task.Attempts} {task.Path} resolution: {task.GetState()}");
 		}
 
 		private static void indexFacadeIdle(object sender, TimeSpan delay)

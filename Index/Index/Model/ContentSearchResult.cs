@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using IndexExercise.Index.Collections;
 
 namespace IndexExercise.Index
 {
@@ -22,7 +21,7 @@ namespace IndexExercise.Index
 		public static ContentSearchResult Success(IEnumerable<long> contentIds) => new ContentSearchResult
 		{
 			ContentIds = contentIds,
-			SyntaxErrors = System.Array.Empty<string>()
+			SyntaxErrors = Array.Empty<string>()
 		};
 		
 		public IList<string> SyntaxErrors { get; private set; }

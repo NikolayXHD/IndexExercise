@@ -37,7 +37,7 @@ namespace IndexExercise.Index
 			}
 			catch (Exception ex)
 			{
-				BackgorundLoopFailed?.Invoke(this, ex);
+				BackgroundLoopFailed?.Invoke(this, ex);
 				throw;
 			}
 		}
@@ -95,7 +95,7 @@ namespace IndexExercise.Index
 
 
 
-		public event EventHandler<Exception> BackgorundLoopFailed;
+		public event EventHandler<Exception> BackgroundLoopFailed;
 		public event EventHandler<TimeSpan> Idle;
 
 		public TimeSpan IdleDelay
