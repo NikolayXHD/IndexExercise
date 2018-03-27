@@ -54,7 +54,7 @@ namespace IndexExercise.Index.Test
 
 			Assert.That(_indexEngine.Search("phrase").ContentIds, Is.EquivalentTo(Unit.Sequence(contentId)));
 
-			var removalTask = createRemovalTask(additionTask.FileEntry.Data.ContentId);
+			var removalTask = createRemovalTask(additionTask.ContentId);
 			processTask(removalTask);
 
 			_indexEngine.Remove(contentId);
@@ -167,7 +167,7 @@ namespace IndexExercise.Index.Test
 			_taskProcessor.ProcessTask(task);
 
 			stopwatch.Stop();
-			_log.Debug($"task {task.Action} #{task.FileEntry.Data.ContentId} {task.Path} processed in {stopwatch.ElapsedMilliseconds}ms");
+			_log.Debug($"task {task.Action} #{task.ContentId} {task.Path} processed in {stopwatch.ElapsedMilliseconds}ms");
 		}
 
 

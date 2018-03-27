@@ -210,7 +210,7 @@ namespace IndexExercise.Index.FileSystem
 					break;
 
 				case DirectoryEntry<Metadata> directory:
-					raiseFileDeletedEvents(directory);
+					processDeletedDirectoryRecursively(directory);
 					break;
 
 				case UnclassifiedEntry<Metadata> _:
@@ -235,17 +235,7 @@ namespace IndexExercise.Index.FileSystem
 					break;
 
 				case DirectoryEntry<Metadata> directory:
-					raiseFileMovedEvents(directory);
-					
-					// We cannot assume the directory was completely scanned when processing _createdEntriesQueue
-					// it might have been moved between creation was detected and scan attempt happened.
-					//
-					// Ideally we should only rescan the directory if it was scanned moments ago
-					// otherwise we know after the directory was detected and scanned nothing happened to it
-					// for a reasonably long amount of time, so we are sure it was scanned correctly.
-					//
-					// IndexFacade follows the same approach when handling FileRenamed
-					scanDirectory(directory);
+					processMovedDirectory(directory);
 					break;
 
 				case UnclassifiedEntry<Metadata> _:
@@ -254,6 +244,18 @@ namespace IndexExercise.Index.FileSystem
 				default:
 					throw new InvalidOperationException($"processing {entry.GetType()} entry is not supported");
 			}
+		}
+
+		private void processMovedDirectory(DirectoryEntry<Metadata> directoryEntry)
+		{
+			processMovedDirectoryRecursively(directoryEntry);
+
+			// If the moved directory was scanned moments ago we cannot assume we scanned the right 
+			// one. Maybe we found another directory in the previous location of this one.
+			bool needToRescan = directoryEntry.Data.ElapsedSinceScanFinished < AllowablePathSynchronizationLag;
+
+			if (needToRescan)
+				scanDirectory(directoryEntry);
 		}
 
 
@@ -392,49 +394,108 @@ namespace IndexExercise.Index.FileSystem
 
 		private void scanDirectory(DirectoryEntry<Metadata> directory)
 		{
+			_scannedDirectory = directory;
+			_interruptScanningDirectory = false;
+
 			var path = directory.GetPath();
-			
+			directory.Data.ResetScanningTime();
+
 			try
 			{
-				var directoryInfo = new DirectoryInfo(path);
-
-				if (!directoryInfo.Exists)
-					return;
-
-				// if other process removes the scanned directory, to this process the directory
-				// remains existing and files and subdirectories enumeration continues normally
-
-				foreach (var info in directoryInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
-					entryFound(new Find(EntryType.File, info.FullName));
-
-				foreach (var info in directoryInfo.EnumerateDirectories("*", SearchOption.TopDirectoryOnly))
-					entryFound(new Find(EntryType.Directory, info.FullName));
+				scanDirectory(directory, path);
 			}
 			catch (DirectoryNotFoundException)
 			{
+				DirectoryScanNotFound?.Invoke(this, directory);
 			}
 			catch (SecurityException ex)
 			{
 				EntryAccessError?.Invoke(this, new EntryAccessError(EntryType.Directory, path, ex));
 			}
+
+			_scannedDirectory = null;
 		}
 
-		private void raiseFileDeletedEvents(DirectoryEntry<Metadata> directory)
+		private void scanDirectory(DirectoryEntry<Metadata> directory, string path)
 		{
+			var directoryInfo = new DirectoryInfo(path);
+
+			if (!directoryInfo.Exists)
+			{
+				DirectoryScanNotFound?.Invoke(this, directory);
+				return;
+			}
+
+			directory.Data.BeginScan();
+			DirectoryScanStarted?.Invoke(this, directory);
+
+			// if other process removes the scanned directory, to this process the directory
+			// remains existing and files and subdirectories enumeration continues normally
+
+			foreach (var info in directoryInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+			{
+				if (_interruptScanningDirectory)
+					break;
+
+				entryFound(new Find(EntryType.File, info.FullName));
+			}
+
+			if (_interruptScanningDirectory)
+			{
+				directory.Data.ResetScanningTime();
+				DirectoryScanInterrupted?.Invoke(this, directory);
+				return;
+			}
+
+			directoryInfo.Refresh();
+			if (!directoryInfo.Exists)
+			{
+				directory.Data.ResetScanningTime();
+				DirectoryScanNotFound?.Invoke(this, directory);
+				return;
+			}
+
+			foreach (var info in directoryInfo.EnumerateDirectories("*", SearchOption.TopDirectoryOnly))
+			{
+				if (_interruptScanningDirectory)
+					break;
+
+				entryFound(new Find(EntryType.Directory, info.FullName));
+			}
+
+			if (_interruptScanningDirectory)
+			{
+				directory.Data.ResetScanningTime();
+				DirectoryScanInterrupted?.Invoke(this, directory);
+				return;
+			}
+
+			directory.Data.EndScan();
+			DirectoryScanFinished?.Invoke(this, directory);
+		}
+
+		private void processDeletedDirectoryRecursively(DirectoryEntry<Metadata> directory)
+		{
+			if (_scannedDirectory == directory)
+				_interruptScanningDirectory = true;
+
 			foreach (var file in directory.Files.Values)
 				FileDeleted?.Invoke(this, file);
 
 			foreach (var subdirectory in directory.Directories.Values)
-				raiseFileDeletedEvents(subdirectory);
+				processDeletedDirectoryRecursively(subdirectory);
 		}
 
-		private void raiseFileMovedEvents(DirectoryEntry<Metadata> directory)
+		private void processMovedDirectoryRecursively(DirectoryEntry<Metadata> directory)
 		{
+			if (_scannedDirectory == directory)
+				_interruptScanningDirectory = true;
+
 			foreach (var file in directory.Files.Values)
 				FileMoved?.Invoke(this, file);
 
 			foreach (var subdirectory in directory.Directories.Values)
-				raiseFileMovedEvents(subdirectory);
+				processMovedDirectoryRecursively(subdirectory);
 		}
 
 
@@ -583,6 +644,26 @@ namespace IndexExercise.Index.FileSystem
 			return null;
 		}
 
+		/// <summary>
+		/// A maximum time interval we expect between an observed <see cref="FileEntry{TData}"/> is 
+		/// moved and the return value of <see cref="Entry{TData}.GetPath"/> changes
+		/// </summary>
+		public TimeSpan AllowablePathSynchronizationLag
+		{
+			get => _allowablePathSynchronizationLag;
+
+			set
+			{
+				if (value <= TimeSpan.Zero)
+					throw new ArgumentException($"{nameof(AllowablePathSynchronizationLag)} must be a positive {nameof(TimeSpan)}");
+
+				_allowablePathSynchronizationLag = value;
+			}
+		}
+
+		private TimeSpan _allowablePathSynchronizationLag = TimeSpan.FromMilliseconds(400);
+
+
 		public event EventHandler<Change> ProcessingChange;
 		public event EventHandler<Entry<Metadata>> EnqueuedCreatedEntry;
 		public event EventHandler<Entry<Metadata>> EnqueuedDeletedEntry;
@@ -596,6 +677,14 @@ namespace IndexExercise.Index.FileSystem
 		public event EventHandler<FileEntry<Metadata>> FileCreated;
 		public event EventHandler<FileEntry<Metadata>> FileDeleted;
 		public event EventHandler<FileEntry<Metadata>> FileMoved;
+
+		public event EventHandler<DirectoryEntry<Metadata>> DirectoryScanStarted;
+		public event EventHandler<DirectoryEntry<Metadata>> DirectoryScanInterrupted;
+		public event EventHandler<DirectoryEntry<Metadata>> DirectoryScanFinished;
+		public event EventHandler<DirectoryEntry<Metadata>> DirectoryScanNotFound;
+
+		private DirectoryEntry<Metadata> _scannedDirectory;
+		private bool _interruptScanningDirectory;
 
 		private readonly RootEntry<Metadata> _root;
 		private readonly FifoSet<Change> _changeQueue = new FifoSet<Change>();

@@ -20,23 +20,22 @@ namespace IndexExercise.Index
 				_taskCancellationSource.Token,
 				queueCancellationToken);
 
-			CreationTime = DateTime.UtcNow;
+			_creationTime = DateTime.UtcNow;
 		}
 
-		public void BeginProcessing()
+		public void Reset()
 		{
 			Path = null;
 			HardlinkPath = null;
 			FileAccessException = null;
 			HasToBeRepeated = false;
 			Attempts++;
+			FileEntry.Data.ResetScanningTime();
 		}
 
-		public void EndProcessing()
-		{
-			if (Path != null && FileAccessException == null && !CancellationToken.IsCancellationRequested)
-				FileEntry.Data.IndexedTime = DateTime.UtcNow;
-		}
+		public void BeginScan() => FileEntry.Data.BeginScan();
+
+		public void EndScan() => FileEntry.Data.EndScan();
 
 		public void Cancel()
 		{
@@ -46,17 +45,23 @@ namespace IndexExercise.Index
 		public IndexingAction Action { get; }
 
 		public FileEntry<Metadata> FileEntry { get; }
-		
+
+		public long FileLength => FileEntry.Data.Length;
+		public long ContentId => FileEntry.Data.ContentId;
+
 		public string Path { get; set; }
 		public string HardlinkPath { get; set; }
 		public Exception FileAccessException { get; set; }
 
 		public bool HasToBeRepeated { get; set; }
 		public int Attempts { get; set; }
-		public DateTime CreationTime { get; }
+
+		public TimeSpan ElapsedSinceCreation => DateTime.UtcNow - _creationTime;
 
 		public CancellationToken CancellationToken => _combinedCancellationSource.Token;
 		private readonly CancellationTokenSource _combinedCancellationSource;
 		private readonly CancellationTokenSource _taskCancellationSource;
+		
+		private readonly DateTime _creationTime;
 	}
 }

@@ -23,14 +23,19 @@ namespace IndexExercise.Index.Collections
 		/// Adds an <see cref="value"/> with a <see cref="key"/>, maintaining <see cref="key"/>s
 		/// ordered by <see cref="orderValue"/> value
 		/// </summary>
-		public void Add(TKey key, TValue value, TOrderValue orderValue)
+		public bool TryAdd(TKey key, TValue value, TOrderValue orderValue)
 		{
 			lock (_sync)
 			{
+				if (_map.ContainsKey(key))
+					return false;
+
 				_orderValues.Add(key, orderValue);
 				_insertionOrder.Add(key, _counter++);
 				_keys.Add(key);
 				_map.Add(key, value);
+
+				return true;
 			}
 		}
 

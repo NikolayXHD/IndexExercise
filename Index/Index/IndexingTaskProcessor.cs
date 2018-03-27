@@ -17,7 +17,7 @@ namespace IndexExercise.Index
 
 		public void ProcessTask(IndexingTask task)
 		{
-			task.BeginProcessing();
+			task.Reset();
 
 			switch (task.Action)
 			{
@@ -26,14 +26,12 @@ namespace IndexExercise.Index
 					break;
 
 				case IndexingAction.RemoveContent:
-					_indexEngine.Remove(task.FileEntry.Data.ContentId, task.CancellationToken);
+					_indexEngine.Remove(task.ContentId, task.CancellationToken);
 					break;
 
 				default:
 					throw new NotSupportedException($"{nameof(IndexingAction)} {task.Action} is not supported");
 			}
-
-			task.EndProcessing();
 		}
 
 		public void SetFilePropertiesOf(IndexingTask task)
@@ -82,6 +80,8 @@ namespace IndexExercise.Index
 
 		private void updateFile(IndexingTask task)
 		{
+			task.BeginScan();
+
 			SetFilePropertiesOf(task);
 
 			if (task.FileAccessException != null)
@@ -90,9 +90,10 @@ namespace IndexExercise.Index
 			if (task.Path == null)
 				return;
 
-			if (task.FileEntry.Data.Length >= MaxFileLength)
+			if (task.FileLength >= MaxFileLength)
 			{
-				_indexEngine.Remove(task.FileEntry.Data.ContentId, task.CancellationToken);
+				_indexEngine.Remove(task.ContentId, task.CancellationToken);
+				task.EndScan();
 				return;
 			}
 
@@ -104,7 +105,10 @@ namespace IndexExercise.Index
 			using (textReader)
 			{
 				FileOpened?.Invoke(this, task);
-				_indexEngine.Update(task.FileEntry.Data.ContentId, textReader, task.CancellationToken);
+				_indexEngine.Update(task.ContentId, textReader, task.CancellationToken);
+
+				if (!task.CancellationToken.IsCancellationRequested)
+					task.EndScan();
 			}
 		}
 

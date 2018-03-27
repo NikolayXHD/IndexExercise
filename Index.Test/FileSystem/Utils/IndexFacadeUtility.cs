@@ -54,7 +54,7 @@ namespace IndexExercise.Index.Test
 
 		private static void beginProcessingTask(object sender, IndexingTask task)
 		{
-			Log.Debug($"facade begin processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path}");
+			Log.Debug($"facade begin processing {task.Action} #{task.ContentId} length:{task.FileLength}b attempt:{task.Attempts} {task.Path}");
 		}
 
 		private static void endProcessingTask(object sender, IndexingTask task)
@@ -73,7 +73,7 @@ namespace IndexExercise.Index.Test
 			if (state.Length == 0)
 				state.Append("completed ");
 
-			Log.Debug($"facade end processing {task.Action} #{task.FileEntry.Data.ContentId} length:{task.FileEntry.Data.Length}b attempt:{task.Attempts} {task.Path} resolution: {state}");
+			Log.Debug($"facade end processing {task.Action} #{task.ContentId} length:{task.FileLength}b attempt:{task.Attempts} {task.Path} resolution: {state}");
 		}
 
 		private static void indexFacadeIdle(object sender, TimeSpan delay)

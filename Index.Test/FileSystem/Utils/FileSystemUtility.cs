@@ -20,14 +20,23 @@ namespace IndexExercise.Index.Test
 		public string CreateFile(string name = null, string parent = null, string content = null, bool empty = false)
 		{
 			var fileName = GetFileName(name, parent);
-
-			using (var writer = File.CreateText(fileName))
-			{
-				if (!empty)
-					writer.Write(content ?? "some text content");
-			}
-
 			Log.Debug($"create{(empty ? " empty" : string.Empty)} file {fileName}");
+
+			// Indexed files are opened with FileShare.Read|Write|Delete. File.CreateText attempts to
+			// open with FileShare.Write which is denied.
+			// The process cannot access the file ... because it is being used by another process
+			// Therfore we cannot rely on opening FileStream on first attempt.
+
+			// As unit test files are small, these IOExceptions happen quite unfrequently ~ 0.1% of
+			// all write attempts
+			retry(() =>
+			{
+				using (var writer = File.CreateText(fileName))
+				{
+					if (!empty)
+						writer.Write(content ?? "some text content");
+				}
+			});
 
 			return fileName;
 		}
@@ -110,7 +119,15 @@ namespace IndexExercise.Index.Test
 		public void MoveDirectory(string fromDirectoryName, string toDirectoryName)
 		{
 			Log.Debug($"move directory {fromDirectoryName} -> {toDirectoryName}");
-			Directory.Move(fromDirectoryName, toDirectoryName);
+			
+			// Did not have time to figure out why moving scanned directory
+			// once thrown IOException Access to the path ... is denied
+			// once means ~0.01% of all actual move directory attempts
+
+			// I do know while DirectoryInfo.EnumerateFiles and DirectoryInfo.EnumerateDirectories
+			// happens other processes can freely remove the scanned directory and even create a new
+			// with the same path.
+			retry(() => Directory.Move(fromDirectoryName, toDirectoryName));
 		}
 
 
@@ -145,12 +162,34 @@ namespace IndexExercise.Index.Test
 			Log.Debug("delay end");
 		}
 
+		public Task AverageDelay()
+		{
+			return SmallDelay(times: 3);
+		}
+
 		public virtual void Dispose()
 		{
 			DeleteDirectory(TempDirectory);
 		}
 
 
+
+		private static void retry(Action action)
+		{
+			const int attempts = 5;
+			for (int i = 0; i < attempts; i++)
+			{
+				try
+				{
+					action.Invoke();
+					break;
+				}
+				catch (IOException) when (i < attempts - 1)
+				{
+					Task.Delay(TimeSpan.FromMilliseconds(10)).Wait();
+				}
+			}
+		}
 
 		protected TimeSpan DelayDuration { get; } = TimeSpan.FromMilliseconds(100);
 		public string WorkingDirectory { get; }

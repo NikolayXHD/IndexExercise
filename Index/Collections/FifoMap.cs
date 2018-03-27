@@ -25,7 +25,7 @@ namespace IndexExercise.Index.Collections
 		/// <summary>
 		/// Adds an element to a queue
 		/// </summary>
-		/// <exception cref="ArgumentNullException">If <see cref="key"/> is null</exception>
+		/// <exception cref="System.ArgumentNullException">If <see cref="key"/> is null</exception>
 		public void TryEnqueue(TKey key, TValue value)
 		{
 			lock (_sync)

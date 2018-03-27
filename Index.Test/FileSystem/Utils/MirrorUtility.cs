@@ -18,7 +18,7 @@ namespace IndexExercise.Index.Test
 
 			Mirror.EntryFound += entryFound;
 			Mirror.ProcessingChange += processingChange;
-			
+
 			Mirror.EnqueuedCreatedEntry += enqueuedCreatedEntry;
 			Mirror.EnqueuedDeletedEntry += enqueuedDeletedEntry;
 			Mirror.EnqueuedMovedEntry += enqueuedMovedEntry;
@@ -30,6 +30,15 @@ namespace IndexExercise.Index.Test
 			Mirror.Idle += mirrorIdle;
 			Mirror.EntryAccessError += entryAccessError;
 			Mirror.BackgorundLoopFailed += backgroundLoopFailed;
+
+			Mirror.FileCreated += fileCreatedNotification;
+			Mirror.FileDeleted += fileDeletedNotification;
+			Mirror.FileMoved += fileMovedNotification;
+
+			Mirror.DirectoryScanStarted += directoryScanStarted;
+			Mirror.DirectoryScanFinished += directoryScanFinished;
+			Mirror.DirectoryScanInterrupted += directoryScanInterrupted;
+			Mirror.DirectoryScanNotFound += directoryScanNotFound;
 		}
 
 		public override void Dispose()
@@ -37,6 +46,79 @@ namespace IndexExercise.Index.Test
 			Mirror.Dispose();
 			base.Dispose();
 		}
+
+
+
+		public void Watch(EntryType entryType, string path = null)
+		{
+			var target = new WatchTarget(entryType, path ?? WorkingDirectory);
+
+			Mirror.Watch(target);
+			Mirror.RunAsync();
+
+			Log.Debug($"mirror watch {target}");
+		}
+
+		public void AssertDirectoryStructure(string directoryName, params string[] expectedStructureLines)
+		{
+			AssertDirectoryStructure(directoryName, compareData: true, expectedStructureLines: expectedStructureLines);
+		}
+
+		public void AssertDirectoryStructure(string directoryName, bool compareData, params string[] expectedStructureLines)
+		{
+			AssertDirectoryStructure(directoryName, compareData, (IEnumerable<string>) expectedStructureLines);
+		}
+
+		public void AssertDirectoryStructure(string directoryName, bool compareData, IEnumerable<string> expectedStructureLines)
+		{
+			var expectedStructure = string.Join(Environment.NewLine, expectedStructureLines) + Environment.NewLine;
+			var absolutePath = Path.Combine(WorkingDirectory, directoryName);
+			var entry = Mirror.Find(absolutePath);
+
+			Assert.That(entry, Is.Not.Null);
+			Assert.That(entry, Is.InstanceOf<DirectoryEntry<Metadata>>());
+
+			var directory = (DirectoryEntry<Metadata>) entry;
+
+			Action<StringBuilder, Metadata> printData = null;
+			if (compareData)
+				printData = (sb, data) => sb.Append("#").Append(data.ContentId);
+
+			var actualStructure = directory.ToString(printData);
+
+			if (PathString.Comparer.Equals(actualStructure, expectedStructure))
+			{
+				Log.Debug(actualStructure);
+			}
+			else
+			{
+				Assert.Fail(new StringBuilder()
+					.AppendLine("Directory structure is different from expected:")
+					.Append(expectedStructure)
+					.AppendLine("Actual:")
+					.Append(actualStructure)
+					.ToString());
+			}
+		}
+
+		public void LogDirectoryStructure()
+		{
+			var entry = Mirror.Find(WorkingDirectory);
+			var directory = (DirectoryEntry<Metadata>) entry;
+
+			var actualStructure = directory.ToString((sb, data) =>
+			{
+				sb.Append($"#{data.ContentId} {data.GetScanStatus()}");
+			});
+
+			Log.Debug(actualStructure);
+		}
+
+
+
+		public Mirror Mirror { get; }
+
+
 
 		private static void processingChange(object sender, Change change)
 		{
@@ -88,60 +170,44 @@ namespace IndexExercise.Index.Test
 			Log.Error(accessError.ToString);
 		}
 
+		private static void fileCreatedNotification(object sender, FileEntry<Metadata> e)
+		{
+			Log.Debug($"mirror file created {e.Name} #{e.Data.ContentId}");
+		}
+
+		private static void fileDeletedNotification(object sender, FileEntry<Metadata> e)
+		{
+			Log.Debug($"mirror file deleted {e.Name} #{e.Data.ContentId}");
+		}
+
+		private static void fileMovedNotification(object sender, FileEntry<Metadata> e)
+		{
+			Log.Debug($"mirror file moved {e.Name} #{e.Data.ContentId}");
+		}
+
+		private static void directoryScanStarted(object sender, DirectoryEntry<Metadata> e)
+		{
+			Log.Debug($"mirror directory scan started {e.GetPath()}");
+		}
+
+		private static void directoryScanFinished(object sender, DirectoryEntry<Metadata> e)
+		{
+			Log.Debug($"mirror directory scan finished {e.GetPath()}");
+		}
+
+		private static void directoryScanInterrupted(object sender, DirectoryEntry<Metadata> e)
+		{
+			Log.Debug($"mirror directory scan interrupted {e.GetPath()}");
+		}
+
+		private static void directoryScanNotFound(object sender, DirectoryEntry<Metadata> e)
+		{
+			Log.Debug($"mirror directory scan not found {e.GetPath()}");
+		}
+
 		private static void backgroundLoopFailed(object sender, Exception ex)
 		{
 			Log.Error(ex, "mirror background loop failed");
 		}
-
-
-
-		public void Watch(EntryType entryType, string path = null)
-		{
-			var target = new WatchTarget(entryType, path ?? WorkingDirectory);
-
-			Mirror.Watch(target);
-			Mirror.RunAsync();
-
-			Log.Debug($"mirror watch {target}");
-		}
-
-		public void AssertDirectoryStructure(string directoryName, params string[] expectedStructureLines)
-		{
-			AssertDirectoryStructure(directoryName, compareData: true, expectedStructureLines: expectedStructureLines);
-		}
-
-		public void AssertDirectoryStructure(string directoryName, bool compareData, params string[] expectedStructureLines)
-		{
-			AssertDirectoryStructure(directoryName, compareData, (IEnumerable<string>) expectedStructureLines);
-		}
-
-		public void AssertDirectoryStructure(string directoryName, bool compareData, IEnumerable<string> expectedStructureLines)
-		{
-			var expectedStructure = string.Join(Environment.NewLine, expectedStructureLines) + Environment.NewLine;
-			var absolutePath = Path.Combine(WorkingDirectory, directoryName);
-			var entry = Mirror.Find(absolutePath);
-
-			Assert.That(entry, Is.Not.Null);
-			Assert.That(entry, Is.InstanceOf<DirectoryEntry<Metadata>>());
-
-			var directory = (DirectoryEntry<Metadata>) entry;
-			var actualStructure = directory.ToString(printData: compareData);
-
-			if (PathString.Comparer.Equals(actualStructure, expectedStructure))
-			{
-				Log.Debug(actualStructure);
-			}
-			else
-			{
-				Assert.Fail(new StringBuilder()
-					.AppendLine("Directory structure is different from expected:")
-					.Append(expectedStructure)
-					.AppendLine("Actual:")
-					.Append(actualStructure)
-					.ToString());
-			}
-		}
-
-		public Mirror Mirror { get; }
 	}
 }

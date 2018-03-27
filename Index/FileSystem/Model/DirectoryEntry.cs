@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -22,7 +23,7 @@ namespace IndexExercise.Index.FileSystem
 			new Dictionary<string, UnclassifiedEntry<TData>>(PathString.Comparer);
 
 
-		public string ToString(bool printData)
+		public string ToString(Action<StringBuilder, TData> printData)
 		{
 			int nesting = this is RootEntry<TData> ? -1 : 0;
 
@@ -33,17 +34,20 @@ namespace IndexExercise.Index.FileSystem
 
 		public override string ToString()
 		{
-			return ToString(printData: true);
+			return ToString((sb, data) => sb.Append(data.ToString()));
 		}
 
-		private static void write(FileEntry<TData> entry, StringBuilder builder, int nesting, bool printData)
+		private static void write(FileEntry<TData> entry, StringBuilder builder, int nesting, Action<StringBuilder, TData> printData)
 		{
 			builder.Append('\t', repeatCount: nesting).Append(entry.Name);
 
-			if (printData)
-				builder.AppendLine($" {entry.Data}");
-			else
-				builder.AppendLine();
+			if (printData != null)
+			{
+				builder.Append(" ");
+				printData(builder, entry.Data);
+			}
+			
+			builder.AppendLine();
 		}
 
 		private static void write(UnclassifiedEntry<TData> entry, StringBuilder builder, int nesting)
@@ -51,7 +55,7 @@ namespace IndexExercise.Index.FileSystem
 			builder.Append('\t', repeatCount: nesting).Append(entry.Name).AppendLine("?");
 		}
 
-		private static void write(DirectoryEntry<TData> entry, StringBuilder builder, int nesting, bool printData)
+		private static void write(DirectoryEntry<TData> entry, StringBuilder builder, int nesting, Action<StringBuilder, TData> printData)
 		{
 			if (nesting >= 0)
 				builder

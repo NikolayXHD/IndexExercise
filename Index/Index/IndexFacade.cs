@@ -147,11 +147,11 @@ namespace IndexExercise.Index
 
 		private void advanceDelayedTask(IndexingTask indexingTask)
 		{
-			if (DateTime.UtcNow - indexingTask.CreationTime < ThrottleDelay)
+			if (indexingTask.ElapsedSinceCreation < ThrottleDelay)
 				return;
 
 			if (_delayedTasksQueue.TryRemove(indexingTask.FileEntry))
-				_addingToIndexQueue.Add(indexingTask.FileEntry, indexingTask, indexingTask.FileEntry.Data.Length);
+				_addingToIndexQueue.TryAdd(indexingTask.FileEntry, indexingTask, indexingTask.FileLength);
 		}
 
 		private void remove(FileEntry<Metadata> file)
@@ -169,12 +169,17 @@ namespace IndexExercise.Index
 			if (currentTask != null && currentTask.FileEntry == file && currentTask.Action == IndexingAction.AddContent)
 				currentTask.Cancel();
 
-			if (!_filesByContentId.ContainsKey(file.Data.ContentId))
+			if (!_filesByContentId.ContainsKey(file.Data.ContentId) && file.Data.ScanStarted)
 			{
 				// after removing from _addingToIndexQueue so that
 				// the task never coexists in both _addingToIndexQueue and _removingFromIndexQueue
 				// such coexistence could lead to processing element creation after its deletion
 				_removingFromIndexQueue.TryEnqueue(file);
+			}
+			else if (file.Data.ScanStarted)
+			{
+				foreach (var sameContentEntry in _filesByContentId[file.Data.ContentId])
+					sameContentEntry.Data.CopyScanStatusFrom(file.Data);
 			}
 		}
 
@@ -183,25 +188,32 @@ namespace IndexExercise.Index
 			bool needToReindex = false;
 
 			var currentTask = _currentTask;
-			if (currentTask != null && currentTask.FileEntry == fileEntry && currentTask.Action == IndexingAction.AddContent)
-			{
+
+			bool indexingInProgress =
+				currentTask != null &&
+				currentTask.FileEntry == fileEntry &&
+				currentTask.Action == IndexingAction.AddContent;
+
+			needToReindex |= indexingInProgress;
+
+			if (indexingInProgress)
 				currentTask.Cancel();
-				needToReindex = true;
-			}
 
 			needToReindex |= _addingToIndexQueue.TryRemove(fileEntry);
 			needToReindex |= _delayedTasksQueue.TryRemove(fileEntry);
 
-			var indexedTime = _filesByContentId[fileEntry.Data.ContentId]
-				.Select(_ => _.Data.IndexedTime)
-				.DefaultIfEmpty(DateTime.MinValue)
-				.Max();
+			var elapsedSinceLastScan = _filesByContentId[fileEntry.Data.ContentId]
+				.Select(_ => _.Data.ElapsedSinceScanFinished)
+				.DefaultIfEmpty(TimeSpan.MinValue)
+				.Min();
 
-			needToReindex |= indexedTime == DateTime.MinValue;
+			bool neverIndexed = elapsedSinceLastScan == TimeSpan.MinValue;
+
+			needToReindex |= neverIndexed;
 
 			// if the moved file was indexed just moments ago we cannot be sure we indexed the right one.
 			// maybe we scanned its previous location and there was some other file
-			needToReindex |= DateTime.UtcNow - indexedTime < AllowablePathSynchronizationLag;
+			needToReindex |= elapsedSinceLastScan < _mirror.AllowablePathSynchronizationLag;
 
 			if (needToReindex)
 				addDelayedTask(fileEntry);
@@ -272,7 +284,7 @@ namespace IndexExercise.Index
 		/// A delay between changed file content is detected and indexing task is enqueued.
 		/// Helps avoid some indexing attempts interrupted due to a subsequent change.
 		/// 
-		/// Should be greater or equal than <see cref="AllowablePathSynchronizationLag"/>
+		/// Should be greater or equal than <see cref="Mirror.AllowablePathSynchronizationLag"/>
 		/// </summary>
 		public TimeSpan ThrottleDelay
 		{
@@ -287,25 +299,6 @@ namespace IndexExercise.Index
 		}
 
 		private TimeSpan _throttleDelay = TimeSpan.FromMilliseconds(400);
-
-		/// <summary>
-		/// A maximum time interval we expect between an observed <see cref="FileEntry{TData}"/> is 
-		/// moved and the return value of <see cref="Entry{TData}.GetPath"/> changes
-		/// </summary>
-		public TimeSpan AllowablePathSynchronizationLag
-		{
-			get => _allowablePathSynchronizationLag;
-
-			set
-			{
-				if (value <= TimeSpan.Zero)
-					throw new ArgumentException($"{nameof(AllowablePathSynchronizationLag)} must be a positive {nameof(TimeSpan)}");
-
-				_allowablePathSynchronizationLag = value;
-			}
-		}
-
-		private TimeSpan _allowablePathSynchronizationLag = TimeSpan.FromMilliseconds(400);
 
 		private IndexingTask _currentTask;
 
@@ -323,7 +316,7 @@ namespace IndexExercise.Index
 		private readonly FifoSet<FileEntry<Metadata>> _removingFromIndexQueue =
 			new FifoSet<FileEntry<Metadata>>();
 
-		private readonly FifoSet<string> _failedHardLinksQueue = 
+		private readonly FifoSet<string> _failedHardLinksQueue =
 			new FifoSet<string>(PathString.Comparer);
 
 		private readonly SetGrouping<long, FileEntry<Metadata>> _filesByContentId =
