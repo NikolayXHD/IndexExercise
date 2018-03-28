@@ -303,7 +303,8 @@ namespace IndexExercise.Index.Demo
 			if (!string.IsNullOrWhiteSpace(_currentText))
 			{
 				var query = _searcher.GetQuery(_currentText);
-				SearchResult = new FixedSearchResult(_searcher.Search(query));
+				var searchResult = _searcher.Search(query);
+				SearchResult = new FixedSearchResult(searchResult);
 			}
 			else
 				SearchResult = FixedSearchResult.Empty;

@@ -87,17 +87,28 @@ namespace IndexExercise.Index.Lucene
 			using (var reader = _indexWriter.GetReader(applyAllDeletes: true))
 			{
 				var searcher = new IndexSearcher(reader);
-				var searchResult = searcher.Search(query, batchSize);
+				TopDocs searchResult = searcher.Search(query, batchSize);
 
-				foreach (var scoreDoc in searchResult.ScoreDocs)
-				{
-					var doc = searcher.Doc(scoreDoc.Doc);
-					long contentId = doc.GetField<StoredField>(IdFieldName).GetInt64Value().Value;
-					yield return contentId;
-				}
+				int count = 0;
 
 				while (searchResult.ScoreDocs.Length > 0)
 				{
+					foreach (var scoreDoc in searchResult.ScoreDocs)
+					{
+						if (count >= MaxResultCount)
+							yield break;
+
+						count++;
+
+						var doc = searcher.Doc(scoreDoc.Doc);
+						long contentId = doc.GetField<StoredField>(IdFieldName).GetInt64Value().Value;
+
+						yield return contentId;
+					}
+
+					if (searchResult.ScoreDocs.Length < batchSize)
+						break;
+
 					var lastDoc = searchResult.ScoreDocs[searchResult.ScoreDocs.Length - 1];
 					searchResult = searcher.SearchAfter(lastDoc, query, batchSize);
 				}
@@ -125,6 +136,7 @@ namespace IndexExercise.Index.Lucene
 		private readonly GenericAnalyzer _writerAnalyzer;
 
 		public string IndexDirectory { get; }
+		public int MaxResultCount { get; set; } = 1 << 18; // 256 K
 
 		private readonly object _syncWrite = new object();
 

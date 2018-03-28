@@ -61,7 +61,7 @@ namespace IndexExercise.Index.Lucene
 
 			if (booleanQuery.Clauses.All(_ => _.Occur == Occur.MUST_NOT))
 			{
-				warnings = warnings.Append(getNegativeClauseWarning(booleanQuery));
+				warnings = warnings.Append(getFullWarningText(NegativeClauseWarning, booleanQuery));
 				booleanQuery.Add(new MatchAllDocsQuery(), Occur.MUST);
 			}
 
@@ -105,7 +105,8 @@ namespace IndexExercise.Index.Lucene
 					var warnings = new List<string>();
 
 					fixNegativeClauses(parsedQuery, warnings);
-						
+					warnOnPostfixQueries(parsedQuery, warnings);
+
 					return new QueryWrapper(parsedQuery, warnings);
 				}
 			}
@@ -127,11 +128,28 @@ namespace IndexExercise.Index.Lucene
 			};
 		}
 
+		private static void warnOnPostfixQueries(Query query, IList<string> warnings)
+		{
+			if (query is BooleanQuery boolean)
+			{
+				foreach (var clause in boolean.Clauses)
+					warnOnPostfixQueries(clause.Query, warnings);
+			}
+
+			if (!(query is WildcardQuery wQuery))
+				return;
+
+			var pattern = wQuery.Term.Text();
+
+			if (pattern.Length > 0 && pattern[0] == '?' || pattern[0] == '*')
+				warnings.Add(getFullWarningText(PostfixWarning, query));
+		}
+
 		private static void fixNegativeClauses(Query query, IList<string> warnings)
 		{
 			if (!(query is BooleanQuery boolean))
 				return;
-			
+
 			bool existsPositive = false;
 			foreach (var clause in boolean.Clauses)
 			{
@@ -143,17 +161,19 @@ namespace IndexExercise.Index.Lucene
 
 			if (!existsPositive)
 			{
-				warnings.Add(getNegativeClauseWarning(query));
+				warnings.Add(getFullWarningText(NegativeClauseWarning, query));
 				boolean.Add(new MatchAllDocsQuery(), Occur.MUST);
 			}
 		}
 
-		private static string getNegativeClauseWarning(Query query)
+		private static string getFullWarningText(string warning, Query query)
 		{
-			return $"{NegativeClauseWarning}: {query}";
+			return $"{warning}: {query}";
 		}
 
 		private const string NegativeClauseWarning = "Negative clause may require a full index scan";
+
+		private const string PostfixWarning = "Postfix wildcard expression requires a full index scan";
 
 		private readonly QueryParser _parser;
 		private readonly string _contentField;

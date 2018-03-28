@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using IndexExercise.Index.Collections;
 using IndexExercise.Index.Lucene;
 using NUnit.Framework;
 
@@ -146,7 +147,7 @@ namespace IndexExercise.Index.Test
 			var query = _indexEngine.QueryBuilder
 				.EngineSpecificQuery("NOT 1");
 
-			Assert.That(query.Warnings.Count > 0);
+			Assert.That(query.Warnings, Is.Not.Empty);
 		}
 
 		[Test]
@@ -208,6 +209,27 @@ namespace IndexExercise.Index.Test
 			Assert.That(_indexEngine.Search("/f?irst/").ContentIds, Is.EquivalentTo(new[] { 1L }));
 			Assert.That(_indexEngine.Search("/pa.+/").ContentIds, Is.EquivalentTo(new[] { 2L }));
 			Assert.That(_indexEngine.Search("/.irst|p[ao]ir/").ContentIds, Is.EquivalentTo(new[] { 1L, 2L }));
+		}
+
+		[TestCase("*warn")]
+		[TestCase("?warn")]
+		[TestCase("?*warn")]
+		[TestCase("some AND ?warn")]
+		[TestCase("content: (\"some phrase\" OR *warn)")]
+		public void Postfix_query_contains_warning(string query)
+		{
+			var parsedQuery = _indexEngine.QueryBuilder.EngineSpecificQuery(query);
+			Assert.That(parsedQuery.Warnings, Is.Not.Empty);
+		}
+
+		[Test]
+		public void Postfix_query_returns_expected_result()
+		{
+			_indexEngine.Update(1L, content: "first one unit");
+			_indexEngine.Update(2L, content: "second two pair");
+
+			Assert.That(_indexEngine.Search("*irst").ContentIds, Is.EquivalentTo(Unit.Sequence(1L)));
+			Assert.That(_indexEngine.Search("?air").ContentIds, Is.EquivalentTo(Unit.Sequence(2L)));
 		}
 
 		[SetUp]
